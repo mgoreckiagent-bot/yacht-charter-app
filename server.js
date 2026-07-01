@@ -18,6 +18,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'klub123';
+const SKIPPER_PASSWORD = process.env.SKIPPER_PASSWORD || 'skipper123';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
@@ -27,6 +28,9 @@ let admins = [
     { id: 2, name: 'Maria Nowak', phone: '+48 987 654 321', email: 'maria@club.local' },
     { id: 3, name: 'Piotr Wójcik', phone: '+48 555 666 777', email: 'piotr@club.local' }
 ];
+
+// Niedostępności opiekunów: { id, adminId, date }
+let unavailability = [];
 
 // ============================================
 // MIDDLEWARE
@@ -41,7 +45,27 @@ function verifyAdminToken(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.role !== 'admin') {
+            return res.status(403).json({ error: 'Brak uprawnień administratora' });
+        }
         req.admin = decoded;
+        next();
+    } catch (err) {
+        return res.status(401).json({ error: 'Nieprawidłowy token' });
+    }
+}
+
+// Dopuszcza zarówno admina, jak i opiekuna (skippera)
+function verifyAnyToken(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Brak tokenu' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Nieprawidłowy token' });
@@ -114,17 +138,24 @@ async function sendEmail(to, subject, html) {
 app.post('/api/auth/login', (req, res) => {
     const { password } = req.body;
 
-    if (password !== ADMIN_PASSWORD) {
+    let role = null;
+    if (password === ADMIN_PASSWORD) {
+        role = 'admin';
+    } else if (password === SKIPPER_PASSWORD) {
+        role = 'skipper';
+    }
+
+    if (!role) {
         return res.status(401).json({ error: 'Błędne hasło' });
     }
 
     const token = jwt.sign(
-        { role: 'admin', timestamp: Date.now() },
+        { role, timestamp: Date.now() },
         JWT_SECRET,
         { expiresIn: '24h' }
     );
 
-    res.json({ token, message: 'Zalogowano pomyślnie' });
+    res.json({ token, role, message: 'Zalogowano pomyślnie' });
 });
 
 // ============================================
@@ -292,7 +323,7 @@ app.delete('/api/reservations/:id', verifyAdminToken, (req, res) => {
 // ADMIN (SKIPPER) ENDPOINTS
 // ============================================
 
-app.get('/api/admins', verifyAdminToken, (req, res) => {
+app.get('/api/admins', verifyAnyToken, (req, res) => {
     res.json(admins);
 });
 
@@ -341,6 +372,49 @@ app.delete('/api/admins/:id', verifyAdminToken, (req, res) => {
     admins.splice(index, 1);
 
     res.json({ message: 'Opiekun usunięty' });
+});
+
+// ============================================
+// UNAVAILABILITY ENDPOINTS (niedostępność opiekunów)
+// ============================================
+
+app.get('/api/unavailability', verifyAnyToken, (req, res) => {
+    res.json(unavailability);
+});
+
+app.post('/api/unavailability', verifyAnyToken, (req, res) => {
+    const { adminId, date } = req.body;
+
+    if (!adminId || !date) {
+        return res.status(400).json({ error: 'Brakuje wymaganych pól' });
+    }
+
+    const exists = unavailability.find(u => u.adminId === adminId && u.date === date);
+    if (exists) {
+        return res.status(200).json({ message: 'Już oznaczone', entry: exists });
+    }
+
+    const entry = {
+        id: 'UNAV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+        adminId,
+        date
+    };
+
+    unavailability.push(entry);
+
+    res.status(201).json({ message: 'Dzień oznaczony jako niedostępny', entry });
+});
+
+app.delete('/api/unavailability/:id', verifyAnyToken, (req, res) => {
+    const index = unavailability.findIndex(u => u.id === req.params.id);
+
+    if (index === -1) {
+        return res.status(404).json({ error: 'Wpis nie znaleziony' });
+    }
+
+    unavailability.splice(index, 1);
+
+    res.json({ message: 'Wpis usunięty' });
 });
 
 // ============================================
