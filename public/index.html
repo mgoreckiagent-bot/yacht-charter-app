@@ -5,653 +5,111 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zarządzanie Czarterami Jachtów</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .mode-selector {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .mode-btn {
-            padding: 15px 40px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .mode-btn.customer {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .mode-btn.customer:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
-        }
-
-        .mode-btn.admin {
-            background: #2196F3;
-            color: white;
-        }
-
-        .mode-btn.admin:hover {
-            background: #0b7dda;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
-        }
-
-        .mode-btn.active {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-
-        .module {
-            display: none;
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-
-        .module.active {
-            display: block;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .section {
-            margin-bottom: 30px;
-        }
-
-        .section h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        input[type="date"],
-        input[type="time"],
-        input[type="number"],
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s ease;
-        }
-
-        input[type="text"]:focus,
-        input[type="email"]:focus,
-        input[type="tel"]:focus,
-        input[type="date"]:focus,
-        input[type="time"]:focus,
-        input[type="number"]:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .checkbox-group {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .price-summary {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .price-line {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .price-line.total {
-            border-top: 2px solid #667eea;
-            padding-top: 10px;
-            margin-top: 10px;
-            font-weight: bold;
-            font-size: 18px;
-            color: #667eea;
-        }
-
-        .price-label {
-            color: #666;
-        }
-
-        .price-value {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .deposit-info {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            color: #856404;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-        }
-
-        .btn-info {
-            background: #17a2b8;
-            color: white;
-        }
-
-        .btn-info:hover {
-            background: #138496;
-        }
-
-        .summary-card {
-            background: #f8f9fa;
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            padding: 25px;
-            margin: 20px 0;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .summary-row:last-child {
-            border-bottom: none;
-        }
-
-        .summary-label {
-            color: #666;
-            font-weight: 500;
-        }
-
-        .summary-value {
-            color: #333;
-            font-weight: 700;
-        }
-
-        .calendar {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .calendar th,
-        .calendar td {
-            padding: 15px;
-            text-align: center;
-            border: 1px solid #ddd;
-        }
-
-        .calendar th {
-            background: #667eea;
-            color: white;
-            font-weight: 600;
-        }
-
-        .calendar td {
-            height: 100px;
-            vertical-align: top;
-            position: relative;
-            cursor: pointer;
-            background: #fafafa;
-            transition: background 0.3s ease;
-        }
-
-        .calendar td:hover {
-            background: #f0f0f0;
-        }
-
-        .calendar .other-month {
-            color: #ccc;
-            background: #f5f5f5;
-        }
-
-        .calendar .today {
-            background: #e8f5e9;
-            border: 2px solid #4CAF50;
-        }
-
-        .reservation {
-            background: #ff6b6b;
-            color: white;
-            padding: 5px;
-            border-radius: 4px;
-            margin: 3px 0;
-            font-size: 11px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .reservation:hover {
-            transform: scale(1.05);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .reservation.approved {
-            background: #4CAF50;
-        }
-
-        .reservation.pending {
-            background: #ff9800;
-        }
-
-        .calendar-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .calendar-nav button {
-            padding: 10px 20px;
-        }
-
-        .calendar-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-            flex: 1;
-            text-align: center;
-        }
-
-        .view-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        .view-buttons button {
-            padding: 8px 15px;
-            font-size: 12px;
-        }
-
-        .view-buttons button.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .login-form {
-            max-width: 400px;
-            margin: 50px auto;
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            animation: fadeIn 0.3s ease;
-        }
-
-        .modal.show {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .modal-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        }
-
-        .modal-header {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            color: #333;
-            margin: 0;
-        }
-
-        .close-modal {
-            font-size: 28px;
-            font-weight: bold;
-            color: #aaa;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .close-modal:hover {
-            color: #000;
-        }
-
-        .reservation-list {
-            margin-top: 20px;
-        }
-
-        .reservation-item {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
-            transition: all 0.3s ease;
-        }
-
-        .reservation-item:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .reservation-item.red {
-            border-left-color: #ff6b6b;
-        }
-
-        .reservation-item.green {
-            border-left-color: #4CAF50;
-        }
-
-        .reservation-item.orange {
-            border-left-color: #ff9800;
-        }
-
-        .reservation-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .reservation-status {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .reservation-status.pending {
-            background: #ffe0b2;
-            color: #e65100;
-        }
-
-        .reservation-status.approved {
-            background: #c8e6c9;
-            color: #2e7d32;
-        }
-
-        .reservation-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            font-size: 14px;
-        }
-
-        .detail-item {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .detail-label {
-            color: #666;
-            font-weight: 500;
-            margin-bottom: 3px;
-        }
-
-        .detail-value {
-            color: #333;
-            font-weight: 600;
-        }
-
-        .logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .logout-btn:hover {
-            background: #c82333;
-        }
-
-        .password-protected {
-            display: none;
-        }
-
-        .password-protected.active {
-            display: block;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 40px; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .mode-selector { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .mode-btn { padding: 15px 40px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .mode-btn.customer { background: #4CAF50; color: white; }
+        .mode-btn.customer:hover { background: #45a049; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); }
+        .mode-btn.admin { background: #2196F3; color: white; }
+        .mode-btn.admin:hover { background: #0b7dda; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
+        .mode-btn.active { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .module { display: none; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .module.active { display: block; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .section { margin-bottom: 30px; }
+        .section h2 { color: #333; margin-bottom: 20px; font-size: 1.5em; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
+        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="time"], input[type="number"], select { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; transition: border-color 0.3s ease; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .checkbox-group { display: flex; gap: 20px; flex-wrap: wrap; }
+        .checkbox-item { display: flex; align-items: center; gap: 10px; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .price-summary { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .price-line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .price-line.total { border-top: 2px solid #667eea; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: #667eea; }
+        .price-label { color: #666; }
+        .price-value { font-weight: 600; color: #333; }
+        .deposit-info { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 6px; margin: 20px 0; color: #856404; }
+        .button-group { display: flex; gap: 15px; margin-top: 30px; flex-wrap: wrap; }
+        button { padding: 12px 30px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+        .summary-card { background: #f8f9fa; border: 2px solid #667eea; border-radius: 8px; padding: 25px; margin: 20px 0; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-label { color: #666; font-weight: 500; }
+        .summary-value { color: #333; font-weight: 700; }
+        .calendar { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .calendar th, .calendar td { padding: 15px; text-align: center; border: 1px solid #ddd; }
+        .calendar th { background: #667eea; color: white; font-weight: 600; }
+        .calendar td { height: 100px; vertical-align: top; position: relative; cursor: pointer; background: #fafafa; transition: background 0.3s ease; }
+        .calendar td:hover { background: #f0f0f0; }
+        .calendar .other-month { color: #ccc; background: #f5f5f5; }
+        .calendar .today { background: #e8f5e9; border: 2px solid #4CAF50; }
+        .reservation { background: #ff6b6b; color: white; padding: 5px; border-radius: 4px; margin: 3px 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; transition: all 0.2s ease; }
+        .reservation:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .reservation.approved { background: #4CAF50; }
+        .reservation.pending { background: #ff9800; }
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
+        .calendar-nav button { padding: 10px 20px; }
+        .calendar-title { font-size: 20px; font-weight: bold; color: #333; flex: 1; text-align: center; }
+        .view-buttons { display: flex; gap: 10px; }
+        .view-buttons button { padding: 8px 15px; font-size: 12px; }
+        .view-buttons button.active { background: #667eea; color: white; }
+        .login-form { max-width: 400px; margin: 50px auto; }
+        .alert { padding: 15px; border-radius: 6px; margin-bottom: 20px; display: none; white-space: pre-line; }
+        .alert.show { display: block; }
+        .alert.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s ease; }
+        .modal.show { display: flex; justify-content: center; align-items: center; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { background-color: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { color: #333; margin: 0; }
+        .close-modal { font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; background: none; border: none; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .close-modal:hover { color: #000; }
+        .reservation-list { margin-top: 20px; }
+        .reservation-item { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #667eea; transition: all 0.3s ease; }
+        .reservation-item:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .reservation-item.red { border-left-color: #ff6b6b; }
+        .reservation-item.green { border-left-color: #4CAF50; }
+        .reservation-item.orange { border-left-color: #ff9800; }
+        .reservation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .reservation-status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        .reservation-status.pending { background: #ffe0b2; color: #e65100; }
+        .reservation-status.approved { background: #c8e6c9; color: #2e7d32; }
+        .reservation-details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px; }
+        .detail-item { display: flex; flex-direction: column; }
+        .detail-label { color: #666; font-weight: 500; margin-bottom: 3px; }
+        .detail-value { color: #333; font-weight: 600; }
+        .logout-btn { position: absolute; top: 20px; right: 20px; background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .logout-btn:hover { background: #c82333; }
+        .password-protected { display: none; }
+        .password-protected.active { display: block; }
         @media (max-width: 768px) {
-            .mode-selector {
-                flex-direction: column;
-            }
-
-            .mode-btn {
-                width: 100%;
-            }
-
-            .button-group {
-                flex-direction: column;
-            }
-
-            button {
-                width: 100%;
-            }
-
-            .calendar td {
-                padding: 10px 5px;
-                height: 80px;
-                font-size: 12px;
-            }
-
-            .reservation {
-                font-size: 10px;
-            }
-
-            .reservation-details {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 1.8em;
-            }
+            .mode-selector { flex-direction: column; }
+            .mode-btn { width: 100%; }
+            .button-group { flex-direction: column; }
+            button { width: 100%; }
+            .calendar td { padding: 10px 5px; height: 80px; font-size: 12px; }
+            .reservation { font-size: 10px; }
+            .reservation-details { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.8em; }
         }
     </style>
 </head>
@@ -664,21 +122,14 @@
 
         <div id="alertBox" class="alert"></div>
 
-        <!-- MODE SELECTOR -->
         <div class="mode-selector">
-            <button class="mode-btn customer active" onclick="switchMode('customer')">
-                🧑‍💼 Rezerwacja Czarteru
-            </button>
-            <button class="mode-btn admin" onclick="switchMode('admin')">
-                👨‍💼 Panel Klubowy
-            </button>
+            <button class="mode-btn customer active" onclick="switchMode('customer')">🧑‍💼 Rezerwacja Czarteru</button>
+            <button class="mode-btn admin" onclick="switchMode('admin')">👨‍💼 Panel Klubowy</button>
         </div>
 
-        <!-- CUSTOMER MODULE -->
         <div id="customerModule" class="module active">
             <div class="section">
                 <h2>📅 Wylicz Cenę Czarteru</h2>
-
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
                     <select id="selectedYacht" onchange="updatePrice()">
@@ -688,22 +139,18 @@
                         <option value="omega">Omega (80 zł/h)</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Data rezerwacji:</label>
                     <input type="date" id="charterDate" onchange="updatePrice()">
                 </div>
-
                 <div class="form-group">
                     <label>Godzina początkowa:</label>
                     <input type="time" id="charterStartTime" onchange="updatePrice()">
                 </div>
-
                 <div class="form-group">
                     <label>Ilość godzin:</label>
                     <input type="number" id="charterHours" min="1" max="24" value="1" onchange="updatePrice()">
                 </div>
-
                 <div class="form-group">
                     <label>Opcjonalne usługi:</label>
                     <div class="checkbox-group">
@@ -717,7 +164,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="price-summary">
                     <div class="price-line">
                         <span class="price-label">Wynajem jachtu:</span>
@@ -736,13 +182,11 @@
                         <span class="price-value" id="totalPrice">0 zł</span>
                     </div>
                 </div>
-
                 <div class="deposit-info">
                     <strong>⚠️ Ważna informacja:</strong><br>
                     Kaucja zwrotna: <strong>500 zł</strong><br>
                     Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu.
                 </div>
-
                 <div class="button-group">
                     <button class="btn-primary" onclick="submitReservation()">Rezerwuj Jacht</button>
                     <button class="btn-secondary" onclick="resetForm()">Wyczyść formularz</button>
@@ -750,7 +194,6 @@
             </div>
         </div>
 
-        <!-- ADMIN MODULE -->
         <div id="adminModule" class="module">
             <div id="adminLogin" class="login-form">
                 <h2>Logowanie do Panelu Klubowego</h2>
@@ -760,13 +203,10 @@
                 </div>
                 <button class="btn-primary" onclick="adminLogin()" style="width: 100%;">Zaloguj się</button>
             </div>
-
             <div id="adminPanel" class="password-protected">
                 <button class="logout-btn" onclick="adminLogout()">Wyloguj się</button>
-
                 <div class="section">
                     <h2>📅 Kalendarz Rezerwacji</h2>
-
                     <div class="calendar-nav">
                         <button class="btn-secondary" onclick="previousMonth()">← Poprzedni</button>
                         <div class="calendar-title" id="calendarTitle"></div>
@@ -777,20 +217,16 @@
                             <button class="btn-secondary" onclick="switchCalendarView('day')">Dzień</button>
                         </div>
                     </div>
-
                     <table class="calendar" id="calendarTable"></table>
                 </div>
-
                 <div class="section">
                     <h2>📋 Lista Rezerwacji</h2>
-
                     <div class="reservation-list" id="reservationList"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- RESERVATION SUMMARY MODAL -->
     <div id="summaryModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -801,7 +237,6 @@
         </div>
     </div>
 
-    <!-- SEND RESERVATION MODAL -->
     <div id="sendModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -827,7 +262,6 @@
         </div>
     </div>
 
-    <!-- EDIT RESERVATION MODAL -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -838,7 +272,6 @@
         </div>
     </div>
 
-    <!-- ADMIN RESERVATION DETAIL MODAL -->
     <div id="adminReservationModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -850,46 +283,35 @@
     </div>
 
     <script>
-        // ============================================
-        // DATA STORAGE & STATE
-        // ============================================
+        const API_BASE_URL = '';
 
         const YACHTS = {
-            enn: { name: 'Enn', pricePerHour: 80, capacity: 4 },
-            first: { name: 'First', pricePerHour: 80, capacity: 5 },
-            omega: { name: 'Omega', pricePerHour: 80, capacity: 4 }
+            enn: { name: 'Enn', pricePerHour: 80, capacity: 6 },
+            first: { name: 'First', pricePerHour: 80, capacity: 8 },
+            omega: { name: 'Omega', pricePerHour: 80, capacity: 10 }
         };
-        const API_BASE_URL = 'https://yacht-charter-app-production.up.railway.app';
-        const ADMIN_PASSWORD = 'klub123';
-        const TACKLE_PRICE = 50;
 
-        const ADMIN_PASSWORD = 'klub123'; // Hasło do panelu (zmień to!)
         const TACKLE_PRICE = 50;
         const SKIPPER_HOURLY_PRICE = 50;
         const DEPOSIT = 500;
 
         let currentReservation = null;
-        let reservations = loadReservations();
-        let admins = loadAdmins();
+        let adminToken = localStorage.getItem('adminToken') || null;
+        let reservations = [];
+        let admins = [];
         let currentDate = new Date();
         let calendarView = 'month';
-        let adminLoggedIn = false;
-
-        // ============================================
-        // UTILITY FUNCTIONS
-        // ============================================
 
         function showAlert(message, type = 'info') {
             const alertBox = document.getElementById('alertBox');
             alertBox.className = `alert show ${type}`;
             alertBox.textContent = message;
-            setTimeout(() => alertBox.classList.remove('show'), 5000);
+            setTimeout(() => alertBox.classList.remove('show'), 6000);
         }
 
         function switchMode(mode) {
             document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-
             if (mode === 'customer') {
                 document.getElementById('customerModule').classList.add('active');
                 document.querySelector('.mode-btn.customer').classList.add('active');
@@ -898,34 +320,6 @@
                 document.querySelector('.mode-btn.admin').classList.add('active');
             }
         }
-
-        function saveReservations() {
-            localStorage.setItem('reservations', JSON.stringify(reservations));
-        }
-
-        function loadReservations() {
-            return JSON.parse(localStorage.getItem('reservations')) || [];
-        }
-
-        function saveAdmins() {
-            localStorage.setItem('admins', JSON.stringify(admins));
-        }
-
-        function loadAdmins() {
-            return JSON.parse(localStorage.getItem('admins')) || [
-                { id: 1, name: 'Jan Kowalski', phone: '+48 123 456 789' },
-                { id: 2, name: 'Maria Nowak', phone: '+48 987 654 321' },
-                { id: 3, name: 'Piotr Wójcik', phone: '+48 555 666 777' }
-            ];
-        }
-
-        function generateId() {
-            return 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        }
-
-        // ============================================
-        // CUSTOMER MODULE - PRICE CALCULATION
-        // ============================================
 
         function updatePrice() {
             const yacht = document.getElementById('selectedYacht').value;
@@ -960,7 +354,6 @@
             }
 
             total += tackleTotal + skipperTotal;
-
             document.getElementById('rentPrice').textContent = (yachtData.pricePerHour * hours) + ' zł';
             document.getElementById('totalPrice').textContent = total + ' zł';
         }
@@ -973,7 +366,6 @@
             document.getElementById('tackleService').checked = false;
             document.getElementById('skipperService').checked = false;
             updatePrice();
-            showAlert('Formularz wyczyszczony', 'info');
         }
 
         function submitReservation() {
@@ -990,7 +382,6 @@
             }
 
             currentReservation = {
-                id: generateId(),
                 yacht: yacht,
                 yachtName: YACHTS[yacht].name,
                 date: date,
@@ -999,9 +390,7 @@
                 tackle: tackle,
                 skipper: skipper,
                 totalPrice: calculateTotalPrice(yacht, hours, tackle, skipper),
-                deposit: DEPOSIT,
-                status: 'pending',
-                createdAt: new Date().toISOString()
+                deposit: DEPOSIT
             };
 
             showSummaryModal();
@@ -1024,55 +413,23 @@
 
             let html = `
                 <div class="summary-card">
-                    <div class="summary-row">
-                        <span class="summary-label">Jacht:</span>
-                        <span class="summary-value">${currentReservation.yachtName}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Data:</span>
-                        <span class="summary-value">${new Date(currentReservation.date).toLocaleDateString('pl-PL')}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Godziny:</span>
-                        <span class="summary-value">${currentReservation.startTime} - ${endTimeStr}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Długość wynajmu:</span>
-                        <span class="summary-value">${currentReservation.hours}h</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Wynajem jachtu:</span>
-                        <span class="summary-value">${YACHTS[currentReservation.yacht].pricePerHour * currentReservation.hours} zł</span>
-                    </div>
+                    <div class="summary-row"><span class="summary-label">Jacht:</span><span class="summary-value">${currentReservation.yachtName}</span></div>
+                    <div class="summary-row"><span class="summary-label">Data:</span><span class="summary-value">${new Date(currentReservation.date).toLocaleDateString('pl-PL')}</span></div>
+                    <div class="summary-row"><span class="summary-label">Godziny:</span><span class="summary-value">${currentReservation.startTime} - ${endTimeStr}</span></div>
+                    <div class="summary-row"><span class="summary-label">Długość wynajmu:</span><span class="summary-value">${currentReservation.hours}h</span></div>
+                    <div class="summary-row"><span class="summary-label">Wynajem jachtu:</span><span class="summary-value">${YACHTS[currentReservation.yacht].pricePerHour * currentReservation.hours} zł</span></div>
             `;
 
             if (currentReservation.tackle) {
-                html += `
-                    <div class="summary-row">
-                        <span class="summary-label">Taklowanie:</span>
-                        <span class="summary-value">50 zł</span>
-                    </div>
-                `;
+                html += `<div class="summary-row"><span class="summary-label">Taklowanie:</span><span class="summary-value">50 zł</span></div>`;
             }
-
             if (currentReservation.skipper) {
-                html += `
-                    <div class="summary-row">
-                        <span class="summary-label">Asysta skippera:</span>
-                        <span class="summary-value">${SKIPPER_HOURLY_PRICE * currentReservation.hours} zł</span>
-                    </div>
-                `;
+                html += `<div class="summary-row"><span class="summary-label">Asysta skippera:</span><span class="summary-value">${SKIPPER_HOURLY_PRICE * currentReservation.hours} zł</span></div>`;
             }
 
             html += `
-                    <div class="summary-row">
-                        <span class="summary-label"><strong>Do zapłaty:</strong></span>
-                        <span class="summary-value"><strong>${currentReservation.totalPrice} zł</strong></span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label"><strong>Kaucja (zwrotna):</strong></span>
-                        <span class="summary-value"><strong>${DEPOSIT} zł</strong></span>
-                    </div>
+                    <div class="summary-row"><span class="summary-label"><strong>Do zapłaty:</strong></span><span class="summary-value"><strong>${currentReservation.totalPrice} zł</strong></span></div>
+                    <div class="summary-row"><span class="summary-label"><strong>Kaucja (zwrotna):</strong></span><span class="summary-value"><strong>${DEPOSIT} zł</strong></span></div>
                 </div>
                 <div class="button-group">
                     <button class="btn-success" onclick="showSendModal()">Wyślij do Klubu</button>
@@ -1085,18 +442,9 @@
             modal.classList.add('show');
         }
 
-        function closeSummaryModal() {
-            document.getElementById('summaryModal').classList.remove('show');
-        }
-
-        function showSendModal() {
-            document.getElementById('sendModal').classList.add('show');
-            closeSummaryModal();
-        }
-
-        function closeSendModal() {
-            document.getElementById('sendModal').classList.remove('show');
-        }
+        function closeSummaryModal() { document.getElementById('summaryModal').classList.remove('show'); }
+        function showSendModal() { document.getElementById('sendModal').classList.add('show'); closeSummaryModal(); }
+        function closeSendModal() { document.getElementById('sendModal').classList.remove('show'); }
 
         function sendReservationToClub() {
             const name = document.getElementById('customerName').value.trim();
@@ -1108,94 +456,64 @@
                 return;
             }
 
-            currentReservation.customerName = name;
-            currentReservation.customerEmail = email;
-            currentReservation.customerPhone = phone;
-    fetch(API_BASE_URL + '/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            yacht: currentReservation.yacht,
-            date: currentReservation.date,
-            startTime: currentReservation.startTime,
-            hours: currentReservation.hours,
-            tackle: currentReservation.tackle,
-            skipper: currentReservation.skipper,
-            totalPrice: currentReservation.totalPrice,
-            customerName: name,
-            customerEmail: email,
-            customerPhone: phone
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) throw new Error(data.error);
-        closeSendModal();
-        document.getElementById('customerName').value = '';
-        document.getElementById('customerEmail').value = '';
-        document.getElementById('customerPhone').value = '';
-        showAlert('✅ Rezerwacja wysłana!', 'success');
-        resetForm();
-        currentReservation = null;
-    })
-    .catch(err => {
-        showAlert('❌ Błąd: ' + err.message, 'error');
-    });
-}
+            const payload = {
+                yacht: currentReservation.yacht,
+                date: currentReservation.date,
+                startTime: currentReservation.startTime,
+                hours: currentReservation.hours,
+                tackle: currentReservation.tackle,
+                skipper: currentReservation.skipper,
+                totalPrice: currentReservation.totalPrice,
+                customerName: name,
+                customerEmail: email,
+                customerPhone: phone
+            };
 
-            reservations.push(currentReservation);
-            saveReservations();
-
-            closeSendModal();
-            document.getElementById('customerName').value = '';
-            document.getElementById('customerEmail').value = '';
-            document.getElementById('customerPhone').value = '';
-
-            showAlert(
-                `✅ Rezerwacja wysłana! ID: ${currentReservation.id}\n\nOtrzymasz potwierdzenie na email po akceptacji przez klub.`,
-                'success'
-            );
-
-            resetForm();
-            currentReservation = null;
+            fetch(API_BASE_URL + '/api/reservations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(async r => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+                return data;
+            })
+            .then(data => {
+                closeSendModal();
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerEmail').value = '';
+                document.getElementById('customerPhone').value = '';
+                showAlert(`✅ Rezerwacja wysłana! ID: ${data.reservation.id}\nOtrzymasz potwierdzenie e-mail po akceptacji przez klub.`, 'success');
+                resetForm();
+                currentReservation = null;
+            })
+            .catch(err => {
+                showAlert('❌ Błąd wysyłania rezerwacji: ' + err.message, 'error');
+                console.error('Reservation submit error:', err);
+            });
         }
 
         function showEditModal() {
             const modal = document.getElementById('editModal');
             const content = document.getElementById('editContent');
-
             content.innerHTML = `
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
-                    <select id="editYacht" value="${currentReservation.yacht}">
+                    <select id="editYacht">
                         <option value="enn" ${currentReservation.yacht === 'enn' ? 'selected' : ''}>Enn (80 zł/h)</option>
                         <option value="first" ${currentReservation.yacht === 'first' ? 'selected' : ''}>First (80 zł/h)</option>
                         <option value="omega" ${currentReservation.yacht === 'omega' ? 'selected' : ''}>Omega (80 zł/h)</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Data:</label>
-                    <input type="date" id="editDate" value="${currentReservation.date}">
-                </div>
-                <div class="form-group">
-                    <label>Godzina początkowa:</label>
-                    <input type="time" id="editStartTime" value="${currentReservation.startTime}">
-                </div>
-                <div class="form-group">
-                    <label>Ilość godzin:</label>
-                    <input type="number" id="editHours" min="1" max="24" value="${currentReservation.hours}">
-                </div>
+                <div class="form-group"><label>Data:</label><input type="date" id="editDate" value="${currentReservation.date}"></div>
+                <div class="form-group"><label>Godzina początkowa:</label><input type="time" id="editStartTime" value="${currentReservation.startTime}"></div>
+                <div class="form-group"><label>Ilość godzin:</label><input type="number" id="editHours" min="1" max="24" value="${currentReservation.hours}"></div>
                 <div class="form-group">
                     <label>Opcjonalne usługi:</label>
                     <div class="checkbox-group">
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="editTackle" ${currentReservation.tackle ? 'checked' : ''}>
-                            <label for="editTackle" style="margin: 0;">Z taklowaniem (+50 zł)</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="editSkipper" ${currentReservation.skipper ? 'checked' : ''}>
-                            <label for="editSkipper" style="margin: 0;">Asysta skippera (+50 zł/h)</label>
-                        </div>
+                        <div class="checkbox-item"><input type="checkbox" id="editTackle" ${currentReservation.tackle ? 'checked' : ''}><label for="editTackle" style="margin: 0;">Z taklowaniem (+50 zł)</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="editSkipper" ${currentReservation.skipper ? 'checked' : ''}><label for="editSkipper" style="margin: 0;">Asysta skippera (+50 zł/h)</label></div>
                     </div>
                 </div>
                 <div class="button-group">
@@ -1203,13 +521,10 @@
                     <button class="btn-secondary" onclick="closeEditModal()">Anuluj</button>
                 </div>
             `;
-
             modal.classList.add('show');
         }
 
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('show');
-        }
+        function closeEditModal() { document.getElementById('editModal').classList.remove('show'); }
 
         function saveEditedReservation() {
             currentReservation.yacht = document.getElementById('editYacht').value;
@@ -1219,60 +534,80 @@
             currentReservation.hours = parseInt(document.getElementById('editHours').value);
             currentReservation.tackle = document.getElementById('editTackle').checked;
             currentReservation.skipper = document.getElementById('editSkipper').checked;
-            currentReservation.totalPrice = calculateTotalPrice(
-                currentReservation.yacht,
-                currentReservation.hours,
-                currentReservation.tackle,
-                currentReservation.skipper
-            );
-
+            currentReservation.totalPrice = calculateTotalPrice(currentReservation.yacht, currentReservation.hours, currentReservation.tackle, currentReservation.skipper);
             closeEditModal();
             showSummaryModal();
         }
 
-        // ============================================
-        // ADMIN MODULE - AUTHENTICATION
-        // ============================================
-
         function adminLogin() {
             const password = document.getElementById('adminPassword').value;
 
-            if (password === ADMIN_PASSWORD) {
-                adminLoggedIn = true;
+            fetch(API_BASE_URL + '/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            })
+            .then(async r => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Błędne hasło');
+                return data;
+            })
+            .then(data => {
+                adminToken = data.token;
+                localStorage.setItem('adminToken', adminToken);
                 document.getElementById('adminLogin').style.display = 'none';
                 document.getElementById('adminPanel').classList.add('active');
-                renderCalendar();
-                renderReservationList();
+                loadAdminData();
                 showAlert('Zalogowano do panelu klubowego', 'success');
-            } else {
-                showAlert('Błędne hasło!', 'error');
-            }
+            })
+            .catch(err => {
+                showAlert('❌ ' + err.message, 'error');
+            });
         }
 
         function adminLogout() {
-            adminLoggedIn = false;
+            adminToken = null;
+            localStorage.removeItem('adminToken');
             document.getElementById('adminPassword').value = '';
             document.getElementById('adminLogin').style.display = 'block';
             document.getElementById('adminPanel').classList.remove('active');
             showAlert('Wylogowano z panelu klubowego', 'info');
         }
 
-        // ============================================
-        // ADMIN MODULE - CALENDAR
-        // ============================================
+        function authFetch(url, options = {}) {
+            options.headers = Object.assign({}, options.headers, {
+                'Authorization': 'Bearer ' + adminToken,
+                'Content-Type': 'application/json'
+            });
+            return fetch(API_BASE_URL + url, options).then(async r => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Błąd żądania');
+                return data;
+            });
+        }
+
+        function loadAdminData() {
+            Promise.all([authFetch('/api/reservations'), authFetch('/api/admins')])
+            .then(([resData, adminData]) => {
+                reservations = resData;
+                admins = adminData;
+                renderCalendar();
+                renderReservationList();
+            })
+            .catch(err => {
+                showAlert('❌ Błąd ładowania danych: ' + err.message, 'error');
+                if (err.message.includes('token') || err.message.includes('Nieprawidłowy')) {
+                    adminLogout();
+                }
+            });
+        }
 
         function renderCalendar() {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
-
-            if (calendarView === 'month') {
-                renderMonthCalendar(year, month);
-            } else if (calendarView === 'week') {
-                renderWeekCalendar();
-            } else if (calendarView === 'day') {
-                renderDayCalendar();
-            }
-
+            if (calendarView === 'month') renderMonthCalendar(year, month);
+            else if (calendarView === 'week') renderWeekCalendar();
+            else if (calendarView === 'day') renderDayCalendar();
             updateCalendarTitle();
         }
 
@@ -1281,69 +616,42 @@
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
             const startingDayOfWeek = firstDay.getDay();
-
-            const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
             const dayNames = ['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'];
 
             let html = '<thead><tr>';
-            for (let i = 0; i < 7; i++) {
-                html += `<th>${dayNames[i]}</th>`;
-            }
+            for (let i = 0; i < 7; i++) html += `<th>${dayNames[i]}</th>`;
             html += '</tr></thead><tbody><tr>';
 
-            // Empty cells before first day
-            for (let i = 0; i < startingDayOfWeek; i++) {
-                html += '<td class="other-month"></td>';
-            }
+            for (let i = 0; i < startingDayOfWeek; i++) html += '<td class="other-month"></td>';
 
-            // Days of month
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
                 const isToday = date.toDateString() === new Date().toDateString();
                 const dateStr = date.toISOString().split('T')[0];
-
-                const dayReservations = reservations.filter(r =>
-                    r.date === dateStr && (r.status === 'pending' || r.status === 'approved')
-                );
-
+                const dayReservations = reservations.filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved'));
                 let cellClass = isToday ? 'today' : '';
-                html += `<td class="${cellClass}" onclick="showDayReservations('${dateStr}')">
-                    <div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
-
+                html += `<td class="${cellClass}" onclick="showDayReservations('${dateStr}')"><div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
                 dayReservations.forEach(res => {
                     const statusClass = res.status === 'approved' ? 'approved' : 'pending';
-                    html += `<div class="reservation ${statusClass}" title="${res.yachtName}">
-                        ${res.yachtName} ${res.startTime}
-                    </div>`;
+                    html += `<div class="reservation ${statusClass}" title="${res.yacht}">${res.yacht} ${res.startTime}</div>`;
                 });
-
                 html += '</td>';
-
-                if ((day + startingDayOfWeek) % 7 === 0 && day < daysInMonth) {
-                    html += '</tr><tr>';
-                }
+                if ((day + startingDayOfWeek) % 7 === 0 && day < daysInMonth) html += '</tr><tr>';
             }
 
-            // Empty cells after last day
             const totalCells = (daysInMonth + startingDayOfWeek);
             const remainingCells = 7 - (totalCells % 7);
             if (remainingCells < 7) {
-                for (let i = 0; i < remainingCells; i++) {
-                    html += '<td class="other-month"></td>';
-                }
+                for (let i = 0; i < remainingCells; i++) html += '<td class="other-month"></td>';
             }
 
             html += '</tr></tbody>';
-
             document.getElementById('calendarTable').innerHTML = html;
         }
 
         function renderWeekCalendar() {
-            // Uproszczona wersja - pokaż bieżący tydzień
             const startOfWeek = new Date(currentDate);
             startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-
             let html = '<thead><tr><th>Godzina</th>';
             for (let i = 0; i < 7; i++) {
                 const day = new Date(startOfWeek);
@@ -1351,27 +659,21 @@
                 html += `<th>${['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'][i]} ${day.getDate()}</th>`;
             }
             html += '</tr></thead><tbody>';
-
             for (let hour = 6; hour < 22; hour++) {
                 html += `<tr><td>${hour}:00</td>`;
                 for (let i = 0; i < 7; i++) {
                     const day = new Date(startOfWeek);
                     day.setDate(day.getDate() + i);
                     const dateStr = day.toISOString().split('T')[0];
-
-                    const dayReservations = reservations.filter(r =>
-                        r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour
-                    );
-
+                    const dayReservations = reservations.filter(r => r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour);
                     html += '<td>';
                     dayReservations.forEach(res => {
-                        html += `<div class="reservation" onclick="showReservationDetails('${res.id}')">${res.yachtName}</div>`;
+                        html += `<div class="reservation ${res.status}" onclick="showReservationDetails('${res.id}')">${res.yacht}</div>`;
                     });
                     html += '</td>';
                 }
                 html += '</tr>';
             }
-
             html += '</tbody>';
             document.getElementById('calendarTable').innerHTML = html;
         }
@@ -1379,15 +681,12 @@
         function renderDayCalendar() {
             const dateStr = currentDate.toISOString().split('T')[0];
             const dayName = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'][currentDate.getDay()];
-
-            let html = `<thead><tr><th colspan="4">${dayName} ${currentDate.getDate()} ${['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'][currentDate.getMonth()]} ${currentDate.getFullYear()}</th></tr><tr><th>Godzina</th><th>Enn</th><th>First</th><th>Omega</th></tr></thead><tbody>`;
-
+            const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+            let html = `<thead><tr><th colspan="4">${dayName} ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}</th></tr><tr><th>Godzina</th><th>Enn</th><th>First</th><th>Omega</th></tr></thead><tbody>`;
             for (let hour = 6; hour < 22; hour++) {
                 html += `<tr><td>${hour}:00</td>`;
                 for (let yacht of ['enn', 'first', 'omega']) {
-                    const yachtRes = reservations.find(r =>
-                        r.date === dateStr && r.yacht === yacht && parseInt(r.startTime.split(':')[0]) === hour
-                    );
+                    const yachtRes = reservations.find(r => r.date === dateStr && r.yacht === yacht && parseInt(r.startTime.split(':')[0]) === hour);
                     if (yachtRes) {
                         html += `<td><div class="reservation ${yachtRes.status}" onclick="showReservationDetails('${yachtRes.id}')">${yachtRes.startTime}</div></td>`;
                     } else {
@@ -1396,27 +695,17 @@
                 }
                 html += '</tr>';
             }
-
             html += '</tbody>';
             document.getElementById('calendarTable').innerHTML = html;
         }
 
         function updateCalendarTitle() {
-            const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
-            const title = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-            document.getElementById('calendarTitle').textContent = title;
+            const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+            document.getElementById('calendarTitle').textContent = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
         }
 
-        function previousMonth() {
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            renderCalendar();
-        }
-
-        function nextMonth() {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            renderCalendar();
-        }
+        function previousMonth() { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); }
+        function nextMonth() { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); }
 
         function switchCalendarView(view) {
             calendarView = view;
@@ -1426,144 +715,74 @@
         }
 
         function showDayReservations(dateStr) {
-            const date = new Date(dateStr);
-            currentDate = date;
+            currentDate = new Date(dateStr);
             calendarView = 'day';
             renderCalendar();
         }
 
-        // ============================================
-        // ADMIN MODULE - RESERVATIONS
-        // ============================================
-
         function renderReservationList() {
             const list = document.getElementById('reservationList');
-
             if (reservations.length === 0) {
                 list.innerHTML = '<p style="text-align: center; color: #999;">Brak rezerwacji</p>';
                 return;
             }
-
             const sorted = [...reservations].sort((a, b) => new Date(b.date) - new Date(a.date));
-
             let html = '';
             sorted.forEach(res => {
                 const statusClass = res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red';
                 const statusText = res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana';
-
                 const endTime = new Date(`2000-01-01 ${res.startTime}`);
                 endTime.setHours(endTime.getHours() + res.hours);
                 const endTimeStr = endTime.toTimeString().slice(0, 5);
-
                 html += `
                     <div class="reservation-item ${statusClass}">
                         <div class="reservation-header">
-                            <div style="flex: 1;">
-                                <strong>${res.yachtName}</strong> - ${new Date(res.date).toLocaleDateString('pl-PL')} ${res.startTime}-${endTimeStr}
-                            </div>
+                            <div style="flex: 1;"><strong>${res.yacht}</strong> - ${new Date(res.date).toLocaleDateString('pl-PL')} ${res.startTime}-${endTimeStr}</div>
                             <span class="reservation-status ${res.status === 'approved' ? 'approved' : 'pending'}">${statusText}</span>
                         </div>
                         <div class="reservation-details">
-                            <div class="detail-item">
-                                <div class="detail-label">Klient:</div>
-                                <div class="detail-value">${res.customerName || 'Nie podane'}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Email:</div>
-                                <div class="detail-value">${res.customerEmail || 'Nie podany'}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Telefon:</div>
-                                <div class="detail-value">${res.customerPhone || 'Nie podany'}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Cena:</div>
-                                <div class="detail-value">${res.totalPrice} zł</div>
-                            </div>
+                            <div class="detail-item"><div class="detail-label">Klient:</div><div class="detail-value">${res.customerName || 'Nie podane'}</div></div>
+                            <div class="detail-item"><div class="detail-label">Email:</div><div class="detail-value">${res.customerEmail || 'Nie podany'}</div></div>
+                            <div class="detail-item"><div class="detail-label">Telefon:</div><div class="detail-value">${res.customerPhone || 'Nie podany'}</div></div>
+                            <div class="detail-item"><div class="detail-label">Cena:</div><div class="detail-value">${res.totalPrice} zł</div></div>
                             ${res.admin ? `
-                                <div class="detail-item">
-                                    <div class="detail-label">Opiekun:</div>
-                                    <div class="detail-value">${res.admin.name}</div>
-                                </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Kontakt:</div>
-                                    <div class="detail-value">${res.admin.phone}</div>
-                                </div>
+                                <div class="detail-item"><div class="detail-label">Opiekun:</div><div class="detail-value">${res.admin.name}</div></div>
+                                <div class="detail-item"><div class="detail-label">Kontakt:</div><div class="detail-value">${res.admin.phone}</div></div>
                             ` : ''}
                         </div>
                         <div class="button-group">
                             <button class="btn-info" onclick="showReservationDetails('${res.id}')">Szczegóły</button>
-                            <button class="btn-${res.status === 'approved' ? 'secondary' : 'success'}" onclick="toggleReservationStatus('${res.id}')">
-                                ${res.status === 'approved' ? 'Odrzuć' : 'Zatwierdź'}
-                            </button>
                         </div>
                     </div>
                 `;
             });
-
             list.innerHTML = html;
         }
 
         function showReservationDetails(resId) {
             const res = reservations.find(r => r.id === resId);
             if (!res) return;
-
             const endTime = new Date(`2000-01-01 ${res.startTime}`);
             endTime.setHours(endTime.getHours() + res.hours);
             const endTimeStr = endTime.toTimeString().slice(0, 5);
 
             let html = `
                 <div class="summary-card">
-                    <div class="summary-row">
-                        <span class="summary-label">ID Rezerwacji:</span>
-                        <span class="summary-value">${res.id}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Jacht:</span>
-                        <span class="summary-value">${res.yachtName}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Data:</span>
-                        <span class="summary-value">${new Date(res.date).toLocaleDateString('pl-PL')}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Czas:</span>
-                        <span class="summary-value">${res.startTime} - ${endTimeStr}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Klient:</span>
-                        <span class="summary-value">${res.customerName}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Email:</span>
-                        <span class="summary-value">${res.customerEmail}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Telefon:</span>
-                        <span class="summary-value">${res.customerPhone}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Usługi dodatkowe:</span>
-                        <span class="summary-value">
-                            ${res.tackle ? '✓ Taklowanie (50 zł)<br>' : ''}
-                            ${res.skipper ? `✓ Asysta skippera (${SKIPPER_HOURLY_PRICE * res.hours} zł)<br>` : ''}
-                            ${!res.tackle && !res.skipper ? 'Brak' : ''}
-                        </span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Razem do zapłaty:</span>
-                        <span class="summary-value">${res.totalPrice} zł</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Kaucja:</span>
-                        <span class="summary-value">${DEPOSIT} zł (zwrotna)</span>
-                    </div>
-                    ${res.admin ? `
-                        <div class="summary-row">
-                            <span class="summary-label">Przydzielony opiekun:</span>
-                            <span class="summary-value">${res.admin.name} (${res.admin.phone})</span>
-                        </div>
-                    ` : ''}
+                    <div class="summary-row"><span class="summary-label">ID Rezerwacji:</span><span class="summary-value">${res.id}</span></div>
+                    <div class="summary-row"><span class="summary-label">Jacht:</span><span class="summary-value">${res.yacht}</span></div>
+                    <div class="summary-row"><span class="summary-label">Data:</span><span class="summary-value">${new Date(res.date).toLocaleDateString('pl-PL')}</span></div>
+                    <div class="summary-row"><span class="summary-label">Czas:</span><span class="summary-value">${res.startTime} - ${endTimeStr}</span></div>
+                    <div class="summary-row"><span class="summary-label">Klient:</span><span class="summary-value">${res.customerName}</span></div>
+                    <div class="summary-row"><span class="summary-label">Email:</span><span class="summary-value">${res.customerEmail}</span></div>
+                    <div class="summary-row"><span class="summary-label">Telefon:</span><span class="summary-value">${res.customerPhone}</span></div>
+                    <div class="summary-row"><span class="summary-label">Usługi dodatkowe:</span><span class="summary-value">
+                        ${res.tackle ? '✓ Taklowanie (50 zł)<br>' : ''}
+                        ${res.skipper ? `✓ Asysta skippera (${SKIPPER_HOURLY_PRICE * res.hours} zł)<br>` : ''}
+                        ${!res.tackle && !res.skipper ? 'Brak' : ''}
+                    </span></div>
+                    <div class="summary-row"><span class="summary-label">Razem do zapłaty:</span><span class="summary-value">${res.totalPrice} zł</span></div>
+                    <div class="summary-row"><span class="summary-label">Kaucja:</span><span class="summary-value">${DEPOSIT} zł (zwrotna)</span></div>
+                    ${res.admin ? `<div class="summary-row"><span class="summary-label">Przydzielony opiekun:</span><span class="summary-value">${res.admin.name} (${res.admin.phone})</span></div>` : ''}
                 </div>
             `;
 
@@ -1573,14 +792,11 @@
                         <h3 style="margin-bottom: 15px;">Przydziel Opiekuna</h3>
                         <div class="form-group">
                             <label>Wybierz opiekuna:</label>
-                            <select id="adminSelect">
-                                <option value="">-- Wybierz opiekuna --</option>
+                            <select id="adminSelect"><option value="">-- Wybierz opiekuna --</option>
                 `;
-
                 admins.forEach(admin => {
                     html += `<option value="${admin.id}">${admin.name} (${admin.phone})</option>`;
                 });
-
                 html += `
                             </select>
                         </div>
@@ -1593,9 +809,7 @@
             document.getElementById('adminReservationModal').classList.add('show');
         }
 
-        function closeAdminReservationModal() {
-            document.getElementById('adminReservationModal').classList.remove('show');
-        }
+        function closeAdminReservationModal() { document.getElementById('adminReservationModal').classList.remove('show'); }
 
         function assignAdmin(resId) {
             const adminId = parseInt(document.getElementById('adminSelect').value);
@@ -1603,49 +817,24 @@
                 showAlert('Wybierz opiekuna!', 'error');
                 return;
             }
-
-            const res = reservations.find(r => r.id === resId);
-            const admin = admins.find(a => a.id === adminId);
-
-            if (res && admin) {
-                res.admin = admin;
-                res.status = 'approved';
-                saveReservations();
-
-                // Simulate sending notification to customer
-                console.log(`Email notification sent to ${res.customerEmail}:
-                    
-Potwierdzenie rezerwacji czarteru!
-
-Jacht: ${res.yachtName}
-Data: ${new Date(res.date).toLocaleDateString('pl-PL')}
-Czas: ${res.startTime}
-Opiekun: ${admin.name}
-Telefon opiekuna: ${admin.phone}
-
-Całkowita cena: ${res.totalPrice} zł
-Kaucja zwrotna: ${DEPOSIT} zł
-                `);
-
-                showAlert(`Opiekun przypisany! Powiadomienie wysłane do ${res.customerEmail}`, 'success');
-                renderReservationList();
+            authFetch('/api/reservations/' + resId, { method: 'PATCH', body: JSON.stringify({ adminId }) })
+            .then(data => {
+                showAlert('Opiekun przypisany! Powiadomienie e-mail zostało wysłane do klienta.', 'success');
                 closeAdminReservationModal();
-            }
+                loadAdminData();
+            })
+            .catch(err => {
+                showAlert('❌ ' + err.message, 'error');
+            });
         }
 
-        function toggleReservationStatus(resId) {
-            const res = reservations.find(r => r.id === resId);
-            if (res) {
-                res.status = res.status === 'approved' ? 'cancelled' : 'pending';
-                saveReservations();
-                renderReservationList();
-                renderCalendar();
-            }
-        }
-
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             updatePrice();
+            if (adminToken) {
+                document.getElementById('adminLogin').style.display = 'none';
+                document.getElementById('adminPanel').classList.add('active');
+                loadAdminData();
+            }
         });
     </script>
 </body>
