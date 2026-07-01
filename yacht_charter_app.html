@@ -855,10 +855,13 @@
         // ============================================
 
         const YACHTS = {
-            enn: { name: 'Enn', pricePerHour: 80, capacity: 6 },
-            first: { name: 'First', pricePerHour: 80, capacity: 8 },
-            omega: { name: 'Omega', pricePerHour: 80, capacity: 10 }
+            enn: { name: 'Enn', pricePerHour: 80, capacity: 4 },
+            first: { name: 'First', pricePerHour: 80, capacity: 5 },
+            omega: { name: 'Omega', pricePerHour: 80, capacity: 4 }
         };
+        const API_BASE_URL = 'https://yacht-charter-app-production.up.railway.app';
+        const ADMIN_PASSWORD = 'klub123';
+        const TACKLE_PRICE = 50;
 
         const ADMIN_PASSWORD = 'klub123'; // Hasło do panelu (zmień to!)
         const TACKLE_PRICE = 50;
@@ -1108,6 +1111,37 @@
             currentReservation.customerName = name;
             currentReservation.customerEmail = email;
             currentReservation.customerPhone = phone;
+    fetch(API_BASE_URL + '/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            yacht: currentReservation.yacht,
+            date: currentReservation.date,
+            startTime: currentReservation.startTime,
+            hours: currentReservation.hours,
+            tackle: currentReservation.tackle,
+            skipper: currentReservation.skipper,
+            totalPrice: currentReservation.totalPrice,
+            customerName: name,
+            customerEmail: email,
+            customerPhone: phone
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+        closeSendModal();
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerEmail').value = '';
+        document.getElementById('customerPhone').value = '';
+        showAlert('✅ Rezerwacja wysłana!', 'success');
+        resetForm();
+        currentReservation = null;
+    })
+    .catch(err => {
+        showAlert('❌ Błąd: ' + err.message, 'error');
+    });
+}
 
             reservations.push(currentReservation);
             saveReservations();
