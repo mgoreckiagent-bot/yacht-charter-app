@@ -58,6 +58,28 @@ async function sendEmail(to, subject, html) {
         return;
     }
 
+    // TYMCZASOWE ROZWIĄZANIE: dopóki domena nie jest zweryfikowana w Resend,
+    // konto testowe może wysyłać WYŁĄCZNIE na adres właściciela konta.
+    // EMAIL_OVERRIDE_TO przekierowuje wszystkie maile na ten adres,
+    // dopisując na górze treści prawdziwego adresata.
+    // Usuń zmienną EMAIL_OVERRIDE_TO w Railway, gdy domena będzie zweryfikowana.
+    const overrideTo = process.env.EMAIL_OVERRIDE_TO;
+    let finalTo = to;
+    let finalHtml = html;
+    let finalSubject = subject;
+
+    if (overrideTo) {
+        finalTo = overrideTo;
+        finalSubject = `[dla: ${to}] ${subject}`;
+        finalHtml = `
+            <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;font-family:sans-serif;">
+                <strong>⚠️ Tryb tymczasowy:</strong> ta wiadomość była przeznaczona dla: <strong>${to}</strong><br>
+                Przekaż informację dalej ręcznie (telefon/SMS/mail), dopóki domena nie jest zweryfikowana w Resend.
+            </div>
+            ${html}
+        `;
+    }
+
     try {
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -67,9 +89,9 @@ async function sendEmail(to, subject, html) {
             },
             body: JSON.stringify({
                 from: EMAIL_FROM,
-                to: [to],
-                subject: subject,
-                html: html
+                to: [finalTo],
+                subject: finalSubject,
+                html: finalHtml
             })
         });
 
@@ -78,7 +100,7 @@ async function sendEmail(to, subject, html) {
         if (!response.ok) {
             console.error('Email error (Resend):', data);
         } else {
-            console.log(`Email sent to ${to}, id: ${data.id}`);
+            console.log(`Email sent to ${finalTo} (intended for ${to}), id: ${data.id}`);
         }
     } catch (err) {
         console.error('Email error (network):', err.message);
