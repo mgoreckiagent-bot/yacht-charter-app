@@ -89,28 +89,6 @@ async function sendEmail(to, subject, html) {
         return;
     }
 
-    // TYMCZASOWE ROZWIĄZANIE: dopóki domena nie jest zweryfikowana w Resend,
-    // konto testowe może wysyłać WYŁĄCZNIE na adres właściciela konta.
-    // EMAIL_OVERRIDE_TO przekierowuje wszystkie maile na ten adres,
-    // dopisując na górze treści prawdziwego adresata.
-    // Usuń zmienną EMAIL_OVERRIDE_TO w Railway, gdy domena będzie zweryfikowana.
-    const overrideTo = process.env.EMAIL_OVERRIDE_TO;
-    let finalTo = to;
-    let finalHtml = html;
-    let finalSubject = subject;
-
-    if (overrideTo) {
-        finalTo = overrideTo;
-        finalSubject = `[dla: ${to}] ${subject}`;
-        finalHtml = `
-            <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;font-family:sans-serif;">
-                <strong>⚠️ Tryb tymczasowy:</strong> ta wiadomość była przeznaczona dla: <strong>${to}</strong><br>
-                Przekaż informację dalej ręcznie (telefon/SMS/mail), dopóki domena nie jest zweryfikowana w Resend.
-            </div>
-            ${html}
-        `;
-    }
-
     try {
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -120,9 +98,9 @@ async function sendEmail(to, subject, html) {
             },
             body: JSON.stringify({
                 from: EMAIL_FROM,
-                to: [finalTo],
-                subject: finalSubject,
-                html: finalHtml
+                to: [to],
+                subject: subject,
+                html: html
             })
         });
 
@@ -131,7 +109,7 @@ async function sendEmail(to, subject, html) {
         if (!response.ok) {
             console.error('Email error (Resend):', data);
         } else {
-            console.log(`Email sent to ${finalTo} (intended for ${to}), id: ${data.id}`);
+            console.log(`Email sent to ${to}, id: ${data.id}`);
         }
     } catch (err) {
         console.error('Email error (network):', err.message);
@@ -432,18 +410,6 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK' });
 });
 
-// TYMCZASOWY endpoint diagnostyczny - do usunięcia po zakończeniu debugowania.
-// Nie ujawnia pełnych sekretów, tylko fakt czy są ustawione + krótki podgląd.
-app.get('/debug-env', (req, res) => {
-    res.json({
-        timestamp: new Date().toISOString(),
-        EMAIL_FROM: EMAIL_FROM,
-        EMAIL_OVERRIDE_TO: process.env.EMAIL_OVERRIDE_TO || null,
-        RESEND_API_KEY_present: Boolean(RESEND_API_KEY),
-        RESEND_API_KEY_preview: RESEND_API_KEY ? RESEND_API_KEY.substring(0, 8) + '...' : null
-    });
-});
-
 // Catch-all: SPA fallback dla dowolnej innej trasy GET
 app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -467,11 +433,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`🚀 Serwer uruchomiony na porcie ${PORT}`);
-    console.log(`===== DIAGNOSTYKA ZMIENNYCH (${new Date().toISOString()}) =====`);
-    console.log(`📧 EMAIL_FROM = "${EMAIL_FROM}"`);
-    console.log(`⚠️  EMAIL_OVERRIDE_TO = "${process.env.EMAIL_OVERRIDE_TO || '(BRAK - tryb normalny, tak jak powinno być)'}"`);
-    console.log(`🔑 RESEND_API_KEY = ${RESEND_API_KEY ? 'USTAWIONY (' + RESEND_API_KEY.substring(0, 8) + '...)' : 'BRAK'}`);
-    console.log(`================================================`);
+    console.log(`📧 Email nadawca: ${EMAIL_FROM}`);
+    console.log(`🔑 Resend API: ${RESEND_API_KEY ? 'skonfigurowany' : 'BRAK KLUCZA'}`);
 });
 
 module.exports = app;
