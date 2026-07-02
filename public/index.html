@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zarządzanie Czarterami Jachtów</title>
+    <title>YKP Lublin - Szybkie rezerwacje jachtów jachtów</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
@@ -118,8 +118,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>⛵ Zarządzanie Czarterami Jachtów</h1>
-            <p>Klub Żeglarski - System Rezerwacji</p>
+            <h1>⛵ Zarządzanie Rezerwacjami Jachtów</h1>
+            <p>YACHT KLUB LUBLIN</p>
         </div>
 
         <div id="alertBox" class="alert"></div>
@@ -127,12 +127,12 @@
         <div class="mode-selector">
             <button class="mode-btn customer active" onclick="switchMode('customer')">🧑‍💼 Rezerwacja Czarteru</button>
             <button class="mode-btn admin" onclick="switchMode('admin')">👨‍💼 Panel Klubowy</button>
-            <button class="mode-btn skipper" onclick="switchMode('skipper')">🧭 Panel Opiekuna</button>
+            <button class="mode-btn skipper" onclick="switchMode('skipper')">🧭 Panel Opiekunów</button>
         </div>
 
         <div id="customerModule" class="module active">
             <div class="section">
-                <h2>📅 Wylicz Cenę Czarteru</h2>
+                <h2>📅 Wstępna Cena Czarteru</h2>
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
                     <select id="selectedYacht" onchange="updatePrice()">
@@ -188,7 +188,8 @@
                 <div class="deposit-info">
                     <strong>⚠️ Ważna informacja:</strong><br>
                     Kaucja zwrotna: <strong>500 zł</strong><br>
-                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu.
+                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu o wyznaczonej godzinie.<br>
+                    Podane kwoty NIE SĄ OFERTĄ, a całość kosztów zostanie podsumowana po zakończeniu czarteru.
                 </div>
                 <div class="button-group">
                     <button class="btn-primary" onclick="submitReservation()">Rezerwuj Jacht</button>
@@ -283,7 +284,7 @@
                 <button class="close-modal" onclick="closeSendModal()">&times;</button>
             </div>
             <div class="form-group">
-                <label>Imię i Nazwisko:</label>
+                <label>Dane osoby rezerwującej:</label>
                 <input type="text" id="customerName" placeholder="Jan Kowalski">
             </div>
             <div class="form-group">
@@ -291,7 +292,7 @@
                 <input type="email" id="customerEmail" placeholder="jan@example.com">
             </div>
             <div class="form-group">
-                <label>Telefon komórkowy:</label>
+                <label>Telefon komórkowy do kontaktu:</label>
                 <input type="tel" id="customerPhone" placeholder="+48 123 456 789" value="+48 ">
             </div>
             <div class="button-group">
