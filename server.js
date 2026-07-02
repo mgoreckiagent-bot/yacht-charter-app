@@ -432,6 +432,18 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK' });
 });
 
+// TYMCZASOWY endpoint diagnostyczny - do usunięcia po zakończeniu debugowania.
+// Nie ujawnia pełnych sekretów, tylko fakt czy są ustawione + krótki podgląd.
+app.get('/debug-env', (req, res) => {
+    res.json({
+        timestamp: new Date().toISOString(),
+        EMAIL_FROM: EMAIL_FROM,
+        EMAIL_OVERRIDE_TO: process.env.EMAIL_OVERRIDE_TO || null,
+        RESEND_API_KEY_present: Boolean(RESEND_API_KEY),
+        RESEND_API_KEY_preview: RESEND_API_KEY ? RESEND_API_KEY.substring(0, 8) + '...' : null
+    });
+});
+
 // Catch-all: SPA fallback dla dowolnej innej trasy GET
 app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -455,7 +467,11 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`🚀 Serwer uruchomiony na porcie ${PORT}`);
-    console.log(`📧 Resend API: ${RESEND_API_KEY ? 'skonfigurowany' : 'BRAK KLUCZA'}`);
+    console.log(`===== DIAGNOSTYKA ZMIENNYCH (${new Date().toISOString()}) =====`);
+    console.log(`📧 EMAIL_FROM = "${EMAIL_FROM}"`);
+    console.log(`⚠️  EMAIL_OVERRIDE_TO = "${process.env.EMAIL_OVERRIDE_TO || '(BRAK - tryb normalny, tak jak powinno być)'}"`);
+    console.log(`🔑 RESEND_API_KEY = ${RESEND_API_KEY ? 'USTAWIONY (' + RESEND_API_KEY.substring(0, 8) + '...)' : 'BRAK'}`);
+    console.log(`================================================`);
 });
 
 module.exports = app;
