@@ -374,6 +374,17 @@
         let selectedSkipperAdminId = null;
         let skipperCurrentDate = new Date();
 
+        // WAŻNE: nigdy nie używać date.toISOString() do wyliczania daty "YYYY-MM-DD"
+        // z obiektu Date skonstruowanego lokalnie (new Date(year, month, day)) —
+        // toISOString() konwertuje na UTC, co przy polskiej strefie czasowej (UTC+1/+2)
+        // przesuwa datę o jeden dzień wstecz. Ta funkcja liczy string w czasie lokalnym.
+        function toLocalDateStr(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
         function showAlert(message, type = 'info') {
             const alertBox = document.getElementById('alertBox');
             alertBox.className = `alert show ${type}`;
@@ -720,7 +731,7 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
                 const isToday = date.toDateString() === new Date().toDateString();
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = toLocalDateStr(date);
                 const dayReservations = reservations.filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved'));
                 let cellClass = isToday ? 'today' : '';
                 html += `<td class="${cellClass}" onclick="showDayReservations('${dateStr}')"><div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
@@ -757,7 +768,7 @@
                 for (let i = 0; i < 7; i++) {
                     const day = new Date(startOfWeek);
                     day.setDate(day.getDate() + i);
-                    const dateStr = day.toISOString().split('T')[0];
+                    const dateStr = toLocalDateStr(day);
                     const dayReservations = reservations.filter(r => r.date === dateStr && parseInt(r.startTime.split(':')[0]) === hour);
                     html += '<td>';
                     dayReservations.forEach(res => {
@@ -772,7 +783,7 @@
         }
 
         function renderDayCalendar() {
-            const dateStr = currentDate.toISOString().split('T')[0];
+            const dateStr = toLocalDateStr(currentDate);
             const dayName = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'][currentDate.getDay()];
             const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
             let html = `<thead><tr><th colspan="4">${dayName} ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}</th></tr><tr><th>Godzina</th><th>Enn</th><th>First</th><th>Omega</th></tr></thead><tbody>`;
@@ -1250,7 +1261,7 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
                 const isToday = date.toDateString() === new Date().toDateString();
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = toLocalDateStr(date);
 
                 const isMarked = selectedSkipperAdminId && unavailability.some(u => u.adminId === selectedSkipperAdminId && u.date === dateStr);
                 let cellClass = isToday ? 'today' : '';
