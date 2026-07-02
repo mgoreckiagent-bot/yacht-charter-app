@@ -10,7 +10,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+            // Nigdy nie cachuj index.html - zawsze pobieraj najświeższą wersję po deployu
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        }
+    }
+}));
 
 // ============================================
 // CONFIGURATION
@@ -427,6 +434,7 @@ app.get('/health', (req, res) => {
 
 // Catch-all: SPA fallback dla dowolnej innej trasy GET
 app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
