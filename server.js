@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
+const { createClient } = require('@supabase/supabase-js');
 
 dotenv.config();
 
@@ -13,7 +14,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) {
-            // Nigdy nie cachuj index.html - zawsze pobieraj najświeższą wersję po deployu
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         }
     }
@@ -29,15 +29,16 @@ const SKIPPER_PASSWORD = process.env.SKIPPER_PASSWORD || 'skipper123';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
-let reservations = [];
-let admins = [
-    { id: 1, name: 'Jan Kowalski', phone: '+48 123 456 789', email: 'jan@club.local' },
-    { id: 2, name: 'Maria Nowak', phone: '+48 987 654 321', email: 'maria@club.local' },
-    { id: 3, name: 'Piotr Wójcik', phone: '+48 555 666 777', email: 'piotr@club.local' }
-];
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Niedostępności opiekunów: { id, adminId, date }
-let unavailability = [];
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error('❌ BRAK SUPABASE_URL lub SUPABASE_SERVICE_KEY w zmiennych środowiskowych! Baza danych nie będzie działać.');
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { persistSession: false }
+});
 
 // ============================================
 // MIDDLEWARE
@@ -77,6 +78,37 @@ function verifyAnyToken(req, res, next) {
     } catch (err) {
         return res.status(401).json({ error: 'Nieprawidłowy token' });
     }
+}
+
+// ============================================
+// MAPOWANIE WIERSZY BAZY (snake_case) NA FORMAT FRONTENDU (camelCase)
+// ============================================
+
+function mapReservation(row) {
+    return {
+        id: row.id,
+        yacht: row.yacht,
+        date: row.date,
+        startTime: row.start_time,
+        hours: row.hours,
+        tackle: row.tackle,
+        skipper: row.skipper,
+        totalPrice: row.total_price,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        customerPhone: row.customer_phone,
+        status: row.status,
+        admin: row.admin || null,
+        createdAt: row.created_at
+    };
+}
+
+function mapUnavailability(row) {
+    return {
+        id: row.id,
+        adminId: row.admin_id,
+        date: row.date
+    };
 }
 
 // ============================================
@@ -147,31 +179,40 @@ app.post('/api/auth/login', (req, res) => {
 // RESERVATION ENDPOINTS
 // ============================================
 
-app.post('/api/reservations', (req, res) => {
+app.post('/api/reservations', async (req, res) => {
     const { yacht, date, startTime, hours, tackle, skipper, totalPrice, customerName, customerEmail, customerPhone } = req.body;
 
     if (!yacht || !date || !startTime || !hours || !customerName || !customerEmail) {
         return res.status(400).json({ error: 'Brakuje wymaganych pól' });
     }
 
-    const reservation = {
-        id: 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-        yacht,
-        date,
-        startTime,
-        hours: parseInt(hours),
-        tackle: Boolean(tackle),
-        skipper: Boolean(skipper),
-        totalPrice: parseInt(totalPrice),
-        customerName,
-        customerEmail,
-        customerPhone,
-        status: 'pending',
-        admin: null,
-        createdAt: new Date().toISOString()
-    };
+    const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
-    reservations.push(reservation);
+    const { data, error } = await supabase
+        .from('reservations')
+        .insert({
+            id,
+            yacht,
+            date,
+            start_time: startTime,
+            hours: parseInt(hours),
+            tackle: Boolean(tackle),
+            skipper: Boolean(skipper),
+            total_price: parseInt(totalPrice),
+            customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone,
+            status: 'pending'
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Supabase insert error:', error);
+        return res.status(500).json({ error: 'Błąd zapisu rezerwacji w bazie danych' });
+    }
+
+    const reservation = mapReservation(data);
 
     sendEmail(
         reservation.customerEmail,
@@ -193,104 +234,149 @@ app.post('/api/reservations', (req, res) => {
         `
     );
 
-    const adminEmails = admins.map(a => a.email).filter(e => e && !e.endsWith('@club.local'));
-    if (adminEmails.length > 0) {
-        adminEmails.forEach(email => {
-            sendEmail(
-                email,
-                `Nowa rezerwacja - ${reservation.id}`,
-                `
-                    <h2>Nowa Rezerwacja Czarteru</h2>
-                    <ul>
-                        <li><strong>ID:</strong> ${reservation.id}</li>
-                        <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
-                        <li><strong>Data:</strong> ${new Date(reservation.date).toLocaleDateString('pl-PL')}</li>
-                        <li><strong>Czas:</strong> ${reservation.startTime} (${reservation.hours}h)</li>
-                    </ul>
-                    <h3>Klient:</h3>
-                    <ul>
-                        <li><strong>Imię:</strong> ${reservation.customerName}</li>
-                        <li><strong>Email:</strong> ${reservation.customerEmail}</li>
-                        <li><strong>Telefon:</strong> ${reservation.customerPhone}</li>
-                    </ul>
-                `
-            );
-        });
-    }
+    const { data: allAdmins } = await supabase.from('admins').select('email');
+    const adminEmails = (allAdmins || []).map(a => a.email).filter(e => e && !e.endsWith('@club.local'));
+    adminEmails.forEach(email => {
+        sendEmail(
+            email,
+            `Nowa rezerwacja - ${reservation.id}`,
+            `
+                <h2>Nowa Rezerwacja Czarteru</h2>
+                <ul>
+                    <li><strong>ID:</strong> ${reservation.id}</li>
+                    <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
+                    <li><strong>Data:</strong> ${new Date(reservation.date).toLocaleDateString('pl-PL')}</li>
+                    <li><strong>Czas:</strong> ${reservation.startTime} (${reservation.hours}h)</li>
+                </ul>
+                <h3>Klient:</h3>
+                <ul>
+                    <li><strong>Imię:</strong> ${reservation.customerName}</li>
+                    <li><strong>Email:</strong> ${reservation.customerEmail}</li>
+                    <li><strong>Telefon:</strong> ${reservation.customerPhone}</li>
+                </ul>
+            `
+        );
+    });
 
     res.status(201).json({ message: 'Rezerwacja utworzona', reservation });
 });
 
-app.get('/api/reservations', verifyAdminToken, (req, res) => {
-    res.json(reservations);
+app.get('/api/reservations', verifyAdminToken, async (req, res) => {
+    const { data, error } = await supabase
+        .from('reservations')
+        .select('*, admin:admins(id, name, phone, email)')
+        .order('date', { ascending: true });
+
+    if (error) {
+        console.error('Supabase select error:', error);
+        return res.status(500).json({ error: 'Błąd pobierania rezerwacji' });
+    }
+
+    res.json(data.map(mapReservation));
 });
 
-app.get('/api/reservations/:id', (req, res) => {
-    const reservation = reservations.find(r => r.id === req.params.id);
+app.get('/api/reservations/:id', async (req, res) => {
+    const { data, error } = await supabase
+        .from('reservations')
+        .select('*, admin:admins(id, name, phone, email)')
+        .eq('id', req.params.id)
+        .maybeSingle();
 
-    if (!reservation) {
+    if (error || !data) {
         return res.status(404).json({ error: 'Rezerwacja nie znaleziona' });
     }
 
-    res.json(reservation);
+    res.json(mapReservation(data));
 });
 
-app.patch('/api/reservations/:id', verifyAdminToken, (req, res) => {
-    const reservation = reservations.find(r => r.id === req.params.id);
-
-    if (!reservation) {
-        return res.status(404).json({ error: 'Rezerwacja nie znaleziona' });
-    }
-
+app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
     const { status, adminId } = req.body;
+    const updates = {};
+    let assignedAdmin = null;
 
     if (status) {
-        reservation.status = status;
+        updates.status = status;
     }
 
     if (adminId) {
-        const admin = admins.find(a => a.id === adminId);
-        if (admin) {
-            reservation.admin = admin;
-            reservation.status = 'approved';
+        const { data: adminRow, error: adminErr } = await supabase
+            .from('admins')
+            .select('*')
+            .eq('id', adminId)
+            .maybeSingle();
 
-            sendEmail(
-                reservation.customerEmail,
-                `Akceptacja rezerwacji - ${reservation.id}`,
-                `
-                    <h2>Rezerwacja Zatwierdzona! ✅</h2>
-                    <h3>Szczegóły rezerwacji:</h3>
-                    <ul>
-                        <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
-                        <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
-                        <li><strong>Data:</strong> ${new Date(reservation.date).toLocaleDateString('pl-PL')}</li>
-                        <li><strong>Czas:</strong> ${reservation.startTime} (${reservation.hours}h)</li>
-                        <li><strong>Razem do zapłaty:</strong> ${reservation.totalPrice} zł</li>
-                        <li><strong>Kaucja zwrotna:</strong> 500 zł</li>
-                    </ul>
-                    <h3>Dane opiekuna czarteru:</h3>
-                    <ul>
-                        <li><strong>Imię i nazwisko:</strong> ${admin.name}</li>
-                        <li><strong>Telefon:</strong> <a href="tel:${admin.phone}">${admin.phone}</a></li>
-                    </ul>
-                    <p>Pozdrawiamy,<br>Klub Żeglarski</p>
-                `
-            );
+        if (adminErr || !adminRow) {
+            return res.status(404).json({ error: 'Opiekun nie znaleziony' });
         }
+
+        updates.admin_id = adminId;
+        updates.status = 'approved';
+        assignedAdmin = adminRow;
+    }
+
+    const { data, error } = await supabase
+        .from('reservations')
+        .update(updates)
+        .eq('id', req.params.id)
+        .select('*, admin:admins(id, name, phone, email)')
+        .maybeSingle();
+
+    if (error || !data) {
+        return res.status(404).json({ error: 'Rezerwacja nie znaleziona' });
+    }
+
+    const reservation = mapReservation(data);
+
+    if (assignedAdmin) {
+        sendEmail(
+            reservation.customerEmail,
+            `Akceptacja rezerwacji - ${reservation.id}`,
+            `
+                <h2>Rezerwacja Zatwierdzona! ✅</h2>
+                <h3>Szczegóły rezerwacji:</h3>
+                <ul>
+                    <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
+                    <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
+                    <li><strong>Data:</strong> ${new Date(reservation.date).toLocaleDateString('pl-PL')}</li>
+                    <li><strong>Czas:</strong> ${reservation.startTime} (${reservation.hours}h)</li>
+                    <li><strong>Razem do zapłaty:</strong> ${reservation.totalPrice} zł</li>
+                    <li><strong>Kaucja zwrotna:</strong> 500 zł</li>
+                </ul>
+                <h3>Dane opiekuna czarteru:</h3>
+                <ul>
+                    <li><strong>Imię i nazwisko:</strong> ${assignedAdmin.name}</li>
+                    <li><strong>Telefon:</strong> <a href="tel:${assignedAdmin.phone}">${assignedAdmin.phone}</a></li>
+                </ul>
+                <p>Pozdrawiamy,<br>Klub Żeglarski</p>
+            `
+        );
     }
 
     res.json({ message: 'Rezerwacja zaktualizowana', reservation });
 });
 
-app.delete('/api/reservations/:id', verifyAdminToken, (req, res) => {
-    const index = reservations.findIndex(r => r.id === req.params.id);
+app.delete('/api/reservations/:id', verifyAdminToken, async (req, res) => {
+    const { data, error: fetchErr } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
 
-    if (index === -1) {
+    if (fetchErr || !data) {
         return res.status(404).json({ error: 'Rezerwacja nie znaleziona' });
     }
 
-    const reservation = reservations[index];
-    reservations.splice(index, 1);
+    const { error: delErr } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('id', req.params.id);
+
+    if (delErr) {
+        console.error('Supabase delete error:', delErr);
+        return res.status(500).json({ error: 'Błąd usuwania rezerwacji' });
+    }
+
+    const reservation = mapReservation(data);
 
     sendEmail(
         reservation.customerEmail,
@@ -308,53 +394,67 @@ app.delete('/api/reservations/:id', verifyAdminToken, (req, res) => {
 // ADMIN (SKIPPER) ENDPOINTS
 // ============================================
 
-app.get('/api/admins', verifyAnyToken, (req, res) => {
-    res.json(admins);
+app.get('/api/admins', verifyAnyToken, async (req, res) => {
+    const { data, error } = await supabase.from('admins').select('*').order('id', { ascending: true });
+
+    if (error) {
+        console.error('Supabase select error:', error);
+        return res.status(500).json({ error: 'Błąd pobierania opiekunów' });
+    }
+
+    res.json(data);
 });
 
-app.post('/api/admins', verifyAdminToken, (req, res) => {
+app.post('/api/admins', verifyAdminToken, async (req, res) => {
     const { name, phone, email } = req.body;
 
     if (!name || !phone) {
         return res.status(400).json({ error: 'Brakuje wymaganych pól' });
     }
 
-    const newAdmin = {
-        id: Math.max(...admins.map(a => a.id), 0) + 1,
-        name,
-        phone,
-        email: email || ''
-    };
+    const { data, error } = await supabase
+        .from('admins')
+        .insert({ name, phone, email: email || '' })
+        .select()
+        .single();
 
-    admins.push(newAdmin);
-
-    res.status(201).json({ message: 'Opiekun dodany', admin: newAdmin });
-});
-
-app.patch('/api/admins/:id', verifyAdminToken, (req, res) => {
-    const admin = admins.find(a => a.id === parseInt(req.params.id));
-
-    if (!admin) {
-        return res.status(404).json({ error: 'Opiekun nie znaleziony' });
+    if (error) {
+        console.error('Supabase insert error:', error);
+        return res.status(500).json({ error: 'Błąd dodawania opiekuna' });
     }
 
+    res.status(201).json({ message: 'Opiekun dodany', admin: data });
+});
+
+app.patch('/api/admins/:id', verifyAdminToken, async (req, res) => {
     const { name, phone, email } = req.body;
+    const updates = {};
 
-    if (name) admin.name = name;
-    if (phone) admin.phone = phone;
-    if (email !== undefined) admin.email = email;
+    if (name) updates.name = name;
+    if (phone) updates.phone = phone;
+    if (email !== undefined) updates.email = email;
 
-    res.json({ message: 'Opiekun zaktualizowany', admin });
-});
+    const { data, error } = await supabase
+        .from('admins')
+        .update(updates)
+        .eq('id', req.params.id)
+        .select()
+        .maybeSingle();
 
-app.delete('/api/admins/:id', verifyAdminToken, (req, res) => {
-    const index = admins.findIndex(a => a.id === parseInt(req.params.id));
-
-    if (index === -1) {
+    if (error || !data) {
         return res.status(404).json({ error: 'Opiekun nie znaleziony' });
     }
 
-    admins.splice(index, 1);
+    res.json({ message: 'Opiekun zaktualizowany', admin: data });
+});
+
+app.delete('/api/admins/:id', verifyAdminToken, async (req, res) => {
+    const { error } = await supabase.from('admins').delete().eq('id', req.params.id);
+
+    if (error) {
+        console.error('Supabase delete error:', error);
+        return res.status(500).json({ error: 'Błąd usuwania opiekuna' });
+    }
 
     res.json({ message: 'Opiekun usunięty' });
 });
@@ -363,41 +463,56 @@ app.delete('/api/admins/:id', verifyAdminToken, (req, res) => {
 // UNAVAILABILITY ENDPOINTS (niedostępność opiekunów)
 // ============================================
 
-app.get('/api/unavailability', verifyAnyToken, (req, res) => {
-    res.json(unavailability);
+app.get('/api/unavailability', verifyAnyToken, async (req, res) => {
+    const { data, error } = await supabase.from('unavailability').select('*');
+
+    if (error) {
+        console.error('Supabase select error:', error);
+        return res.status(500).json({ error: 'Błąd pobierania danych' });
+    }
+
+    res.json(data.map(mapUnavailability));
 });
 
-app.post('/api/unavailability', verifyAnyToken, (req, res) => {
+app.post('/api/unavailability', verifyAnyToken, async (req, res) => {
     const { adminId, date } = req.body;
 
     if (!adminId || !date) {
         return res.status(400).json({ error: 'Brakuje wymaganych pól' });
     }
 
-    const exists = unavailability.find(u => u.adminId === adminId && u.date === date);
-    if (exists) {
-        return res.status(200).json({ message: 'Już oznaczone', entry: exists });
+    const { data: existing } = await supabase
+        .from('unavailability')
+        .select('*')
+        .eq('admin_id', adminId)
+        .eq('date', date)
+        .maybeSingle();
+
+    if (existing) {
+        return res.status(200).json({ message: 'Już oznaczone', entry: mapUnavailability(existing) });
     }
 
-    const entry = {
-        id: 'UNAV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
-        adminId,
-        date
-    };
+    const { data, error } = await supabase
+        .from('unavailability')
+        .insert({ admin_id: adminId, date })
+        .select()
+        .single();
 
-    unavailability.push(entry);
+    if (error) {
+        console.error('Supabase insert error:', error);
+        return res.status(500).json({ error: 'Błąd zapisu' });
+    }
 
-    res.status(201).json({ message: 'Dzień oznaczony jako niedostępny', entry });
+    res.status(201).json({ message: 'Dzień oznaczony jako niedostępny', entry: mapUnavailability(data) });
 });
 
-app.delete('/api/unavailability/:id', verifyAnyToken, (req, res) => {
-    const index = unavailability.findIndex(u => u.id === req.params.id);
+app.delete('/api/unavailability/:id', verifyAnyToken, async (req, res) => {
+    const { error } = await supabase.from('unavailability').delete().eq('id', req.params.id);
 
-    if (index === -1) {
-        return res.status(404).json({ error: 'Wpis nie znaleziony' });
+    if (error) {
+        console.error('Supabase delete error:', error);
+        return res.status(500).json({ error: 'Błąd usuwania wpisu' });
     }
-
-    unavailability.splice(index, 1);
 
     res.json({ message: 'Wpis usunięty' });
 });
@@ -435,6 +550,7 @@ app.listen(PORT, () => {
     console.log(`🚀 Serwer uruchomiony na porcie ${PORT}`);
     console.log(`📧 Email nadawca: ${EMAIL_FROM}`);
     console.log(`🔑 Resend API: ${RESEND_API_KEY ? 'skonfigurowany' : 'BRAK KLUCZA'}`);
+    console.log(`🗄️  Supabase: ${SUPABASE_URL ? 'skonfigurowany' : 'BRAK KONFIGURACJI'}`);
 });
 
 module.exports = app;
