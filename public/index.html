@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YKP Lublin - Szybkie rezerwacje jachtów jachtów</title>
+    <title>Zarządzanie Czarterami Jachtów</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
@@ -64,6 +64,8 @@
         .calendar td:hover { background: #f0f0f0; }
         .calendar .other-month { color: #ccc; background: #f5f5f5; }
         .calendar .today { background: #e8f5e9; border: 2px solid #4CAF50; }
+        .calendar td:nth-child(6):not(.today):not(.other-month),
+        .calendar td:nth-child(7):not(.today):not(.other-month) { background: #ffebee; }
         .reservation { background: #ff6b6b; color: white; padding: 4px 6px; border-radius: 4px; margin: 3px 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: normal; line-height: 1.3; cursor: pointer; transition: all 0.2s ease; }
         .reservation:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         .reservation.approved { background: #4CAF50; }
@@ -118,8 +120,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>⛵ Zarządzanie Rezerwacjami Jachtów</h1>
-            <p>YACHT KLUB LUBLIN</p>
+            <h1>⛵ Zarządzanie Czarterami Jachtów</h1>
+            <p>Klub Żeglarski - System Rezerwacji</p>
         </div>
 
         <div id="alertBox" class="alert"></div>
@@ -127,12 +129,22 @@
         <div class="mode-selector">
             <button class="mode-btn customer active" onclick="switchMode('customer')">🧑‍💼 Rezerwacja Czarteru</button>
             <button class="mode-btn admin" onclick="switchMode('admin')">👨‍💼 Panel Klubowy</button>
-            <button class="mode-btn skipper" onclick="switchMode('skipper')">🧭 Panel Opiekunów</button>
+            <button class="mode-btn skipper" onclick="switchMode('skipper')">🧭 Panel Opiekuna</button>
         </div>
 
         <div id="customerModule" class="module active">
             <div class="section">
-                <h2>📅 Wstępna Cena Czarteru</h2>
+                <h2>🗓️ Wybierz Dzień z Kalendarza</h2>
+                <div class="calendar-nav">
+                    <button class="btn-secondary" onclick="previousCustomerMonth()">← Poprzedni</button>
+                    <div class="calendar-title" id="customerCalendarTitle"></div>
+                    <button class="btn-secondary" onclick="nextCustomerMonth()">Następny →</button>
+                </div>
+                <table class="calendar" id="customerCalendarTable"></table>
+                <p style="text-align:center;color:#666;margin-top:10px;font-size:14px;">Kliknij dzień, aby ustawić datę rezerwacji w formularzu poniżej.</p>
+            </div>
+            <div class="section" id="customerFormSection">
+                <h2>📅 Wylicz Cenę Czarteru</h2>
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
                     <select id="selectedYacht" onchange="updatePrice()">
@@ -188,8 +200,7 @@
                 <div class="deposit-info">
                     <strong>⚠️ Ważna informacja:</strong><br>
                     Kaucja zwrotna: <strong>500 zł</strong><br>
-                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu o wyznaczonej godzinie.<br>
-                    Podane kwoty NIE SĄ OFERTĄ, a całość kosztów zostanie podsumowana po zakończeniu czarteru.
+                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu.
                 </div>
                 <div class="button-group">
                     <button class="btn-primary" onclick="submitReservation()">Rezerwuj Jacht</button>
@@ -284,7 +295,7 @@
                 <button class="close-modal" onclick="closeSendModal()">&times;</button>
             </div>
             <div class="form-group">
-                <label>Dane osoby rezerwującej:</label>
+                <label>Imię i Nazwisko:</label>
                 <input type="text" id="customerName" placeholder="Jan Kowalski">
             </div>
             <div class="form-group">
@@ -292,7 +303,7 @@
                 <input type="email" id="customerEmail" placeholder="jan@example.com">
             </div>
             <div class="form-group">
-                <label>Telefon komórkowy do kontaktu:</label>
+                <label>Telefon komórkowy:</label>
                 <input type="tel" id="customerPhone" placeholder="+48 123 456 789" value="+48 ">
             </div>
             <div class="button-group">
@@ -428,6 +439,65 @@
             total += tackleTotal + skipperTotal;
             document.getElementById('rentPrice').textContent = (yachtData.pricePerHour * hours) + ' zł';
             document.getElementById('totalPrice').textContent = total + ' zł';
+        }
+
+        // ============================================
+        // CUSTOMER MODULE - KALENDARZ WYBORU DATY
+        // ============================================
+
+        let customerCalendarDate = new Date();
+
+        function renderCustomerCalendar() {
+            const year = customerCalendarDate.getFullYear();
+            const month = customerCalendarDate.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Poniedziałek = pierwszy dzień tygodnia
+            const dayNames = ['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'];
+            const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+
+            document.getElementById('customerCalendarTitle').textContent = `${monthNames[month]} ${year}`;
+
+            let html = '<thead><tr>';
+            for (let i = 0; i < 7; i++) html += `<th>${dayNames[i]}</th>`;
+            html += '</tr></thead><tbody><tr>';
+
+            for (let i = 0; i < startingDayOfWeek; i++) html += '<td class="other-month"></td>';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const isToday = date.toDateString() === new Date().toDateString();
+                const dateStr = toLocalDateStr(date);
+                let cellClass = isToday ? 'today' : '';
+                html += `<td class="${cellClass}" style="cursor:pointer;" onclick="selectCustomerDate('${dateStr}')"><div style="font-weight: bold;">${day}</div></td>`;
+                if ((day + startingDayOfWeek) % 7 === 0 && day < daysInMonth) html += '</tr><tr>';
+            }
+
+            const totalCells = (daysInMonth + startingDayOfWeek);
+            const remainingCells = 7 - (totalCells % 7);
+            if (remainingCells < 7) {
+                for (let i = 0; i < remainingCells; i++) html += '<td class="other-month"></td>';
+            }
+
+            html += '</tr></tbody>';
+            document.getElementById('customerCalendarTable').innerHTML = html;
+        }
+
+        function previousCustomerMonth() {
+            customerCalendarDate.setMonth(customerCalendarDate.getMonth() - 1);
+            renderCustomerCalendar();
+        }
+
+        function nextCustomerMonth() {
+            customerCalendarDate.setMonth(customerCalendarDate.getMonth() + 1);
+            renderCustomerCalendar();
+        }
+
+        function selectCustomerDate(dateStr) {
+            document.getElementById('charterDate').value = dateStr;
+            updatePrice();
+            document.getElementById('customerFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function resetForm() {
@@ -709,8 +779,8 @@
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
-            const startingDayOfWeek = firstDay.getDay();
-            const dayNames = ['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'];
+            const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Poniedziałek = pierwszy dzień tygodnia
+            const dayNames = ['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'];
 
             let html = '<thead><tr>';
             for (let i = 0; i < 7; i++) html += `<th>${dayNames[i]}</th>`;
@@ -1173,8 +1243,8 @@
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
-            const startingDayOfWeek = firstDay.getDay();
-            const dayNames = ['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'];
+            const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Poniedziałek = pierwszy dzień tygodnia
+            const dayNames = ['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'];
             const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
 
             document.getElementById('skipperCalendarTitle').textContent = `${monthNames[month]} ${year}`;
@@ -1251,6 +1321,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             updatePrice();
+            renderCustomerCalendar();
             if (adminToken) {
                 document.getElementById('adminLogin').style.display = 'none';
                 document.getElementById('adminPanel').classList.add('active');
