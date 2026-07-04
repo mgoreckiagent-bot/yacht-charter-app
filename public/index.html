@@ -618,10 +618,29 @@
             })
             .then(async r => {
                 const data = await r.json();
-                if (!r.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+                if (!r.ok) {
+                    if (data.suggestedStartTime) {
+                        const useIt = confirm(
+                            `❌ ${data.error}\n\nNajbliższy wolny termin tego dnia: ${data.suggestedStartTime}.\n\nCzy zmienić godzinę rozpoczęcia na ${data.suggestedStartTime} i spróbować ponownie?`
+                        );
+                        if (useIt) {
+                            currentReservation.startTime = data.suggestedStartTime;
+                            closeSendModal();
+                            showSummaryModal();
+                        } else {
+                            showAlert(`❌ ${data.error} Najbliższy wolny termin: ${data.suggestedStartTime}.`, 'error');
+                        }
+                    } else {
+                        showAlert('❌ ' + (data.error || 'Nieznany błąd serwera'), 'error');
+                    }
+                    return null;
+                }
+
                 return data;
             })
             .then(data => {
+                if (!data) return; // kolizja/błąd już obsłużone powyżej
                 closeSendModal();
                 document.getElementById('customerName').value = '';
                 document.getElementById('customerEmail').value = '';
