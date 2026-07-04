@@ -112,6 +112,60 @@ function mapUnavailability(row) {
 }
 
 // ============================================
+// WYKRYWANIE KOLIZJI CZASOWYCH REZERWACJI
+// ============================================
+
+const DAY_START_MINUTES = 10 * 60; // 10:00 - najwcześniejszy możliwy start
+const DAY_END_MINUTES = 20 * 60;   // 20:00 - sprzęt musi być zdany najpóźniej o tej godzinie
+
+function timeToMinutes(timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function minutesToTime(mins) {
+    const h = Math.floor(mins / 60).toString().padStart(2, '0');
+    const m = (mins % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+}
+
+// Sprawdza czy [newStart, newEnd) nakłada się z [exStart, exEnd) dla którejkolwiek z istniejących rezerwacji
+function findCollision(newStartMinutes, newEndMinutes, existingReservations) {
+    return existingReservations.find(res => {
+        const exStart = timeToMinutes(res.start_time);
+        const exEnd = exStart + res.hours * 60;
+        return exStart < newEndMinutes && newStartMinutes < exEnd;
+    });
+}
+
+// Szuka najwcześniejszego wolnego okna tego samego dnia, mieszczącego żądany czas trwania,
+// w godzinach pracy 10:00-20:00
+function findEarliestAvailableSlot(requestedHours, existingReservations) {
+    const requestedDuration = requestedHours * 60;
+    const sorted = [...existingReservations].sort(
+        (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+    );
+
+    let candidate = DAY_START_MINUTES;
+
+    for (const res of sorted) {
+        const exStart = timeToMinutes(res.start_time);
+        const exEnd = exStart + res.hours * 60;
+
+        if (candidate + requestedDuration <= exStart) {
+            return minutesToTime(candidate);
+        }
+        candidate = Math.max(candidate, exEnd);
+    }
+
+    if (candidate + requestedDuration <= DAY_END_MINUTES) {
+        return minutesToTime(candidate);
+    }
+
+    return null; // brak wolnego okna tego dnia dla żądanej długości czarteru
+}
+
+// ============================================
 // EMAIL SENDING VIA RESEND (HTTPS API - działa na Railway)
 // ============================================
 
@@ -186,6 +240,41 @@ app.post('/api/reservations', async (req, res) => {
         return res.status(400).json({ error: 'Brakuje wymaganych pól' });
     }
 
+    const parsedHours = parseInt(hours);
+
+    // Sprawdzenie kolizji czasowej z istniejącymi rezerwacjami tego samego jachtu i dnia
+    const { data: existingReservations, error: fetchErr } = await supabase
+        .from('reservations')
+        .select('start_time, hours')
+        .eq('yacht', yacht)
+        .eq('date', date)
+        .in('status', ['pending', 'approved']);
+
+    if (fetchErr) {
+        console.error('Supabase select error:', fetchErr);
+        return res.status(500).json({ error: 'Błąd sprawdzania dostępności terminu' });
+    }
+
+    const newStartMinutes = timeToMinutes(startTime);
+    const newEndMinutes = newStartMinutes + parsedHours * 60;
+    const collision = findCollision(newStartMinutes, newEndMinutes, existingReservations);
+
+    if (collision) {
+        const suggestedStartTime = findEarliestAvailableSlot(parsedHours, existingReservations);
+
+        if (suggestedStartTime) {
+            return res.status(409).json({
+                error: 'Wybrany termin koliduje z inną rezerwacją tego jachtu.',
+                suggestedStartTime
+            });
+        } else {
+            return res.status(409).json({
+                error: 'Wybrany termin koliduje z inną rezerwacją tego jachtu, a tego dnia nie ma już wolnego okna na czarter o tej długości (godziny pracy: 10:00-20:00).',
+                suggestedStartTime: null
+            });
+        }
+    }
+
     const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     const { data, error } = await supabase
@@ -195,7 +284,7 @@ app.post('/api/reservations', async (req, res) => {
             yacht,
             date,
             start_time: startTime,
-            hours: parseInt(hours),
+            hours: parsedHours,
             tackle: Boolean(tackle),
             skipper: Boolean(skipper),
             total_price: parseInt(totalPrice),
