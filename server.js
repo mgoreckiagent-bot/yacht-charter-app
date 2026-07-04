@@ -118,6 +118,20 @@ function mapUnavailability(row) {
 const DAY_START_MINUTES = 10 * 60; // 10:00 - najwcześniejszy możliwy start
 const DAY_END_MINUTES = 20 * 60;   // 20:00 - sprzęt musi być zdany najpóźniej o tej godzinie
 
+const YACHT_PRICES = { enn: 80, first: 80, omega: 80 };
+const TACKLE_PRICE = 50;
+const SKIPPER_HOURLY_PRICE = 50;
+
+// Jachty "enn" i "first" traktowane jako zamienne przy kolizji terminu
+const INTERCHANGEABLE_YACHT = { enn: 'first', first: 'enn' };
+
+function calculateTotalPrice(yacht, hours, tackle, skipper) {
+    let total = YACHT_PRICES[yacht] * hours;
+    if (tackle) total += TACKLE_PRICE;
+    if (skipper) total += SKIPPER_HOURLY_PRICE * hours;
+    return total;
+}
+
 function timeToMinutes(timeStr) {
     const [h, m] = timeStr.split(':').map(Number);
     return h * 60 + m;
@@ -379,12 +393,98 @@ app.get('/api/reservations/:id', async (req, res) => {
 });
 
 app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
-    const { status, adminId } = req.body;
+    const { status, adminId, customerName, customerEmail, customerPhone, yacht, date, startTime, hours } = req.body;
     const updates = {};
     let assignedAdmin = null;
 
+    // Pobierz obecny stan rezerwacji - potrzebny do uzupełnienia niezmienianych pól
+    // (np. tackle/skipper przy przeliczaniu ceny) oraz do wykluczenia jej z porównania kolizji
+    const { data: currentRes, error: currentErr } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    if (currentErr || !currentRes) {
+        return res.status(404).json({ error: 'Rezerwacja nie znaleziona' });
+    }
+
     if (status) {
         updates.status = status;
+    }
+
+    if (customerName !== undefined) {
+        if (!customerName.trim()) return res.status(400).json({ error: 'Imię i nazwisko nie może być puste' });
+        updates.customer_name = customerName.trim();
+    }
+    if (customerEmail !== undefined) {
+        if (!customerEmail.trim()) return res.status(400).json({ error: 'Email nie może być pusty' });
+        updates.customer_email = customerEmail.trim();
+    }
+    if (customerPhone !== undefined) updates.customer_phone = customerPhone.trim();
+
+    // Edycja jachtu/daty/godziny/długości - wymaga ponownego sprawdzenia kolizji
+    const changingSchedule = yacht !== undefined || date !== undefined || startTime !== undefined || hours !== undefined;
+
+    if (changingSchedule) {
+        const effectiveYacht = yacht !== undefined ? yacht : currentRes.yacht;
+        const effectiveDate = date !== undefined ? date : currentRes.date;
+        const effectiveStartTime = startTime !== undefined ? startTime : currentRes.start_time;
+        const effectiveHours = hours !== undefined ? parseInt(hours) : currentRes.hours;
+
+        const newStartMinutes = timeToMinutes(effectiveStartTime);
+        const newEndMinutes = newStartMinutes + effectiveHours * 60;
+
+        const { data: existingOnYacht, error: existErr } = await supabase
+            .from('reservations')
+            .select('id, start_time, hours, customer_name')
+            .eq('yacht', effectiveYacht)
+            .eq('date', effectiveDate)
+            .in('status', ['pending', 'approved'])
+            .neq('id', req.params.id);
+
+        if (existErr) {
+            console.error('Supabase select error:', existErr);
+            return res.status(500).json({ error: 'Błąd sprawdzania dostępności terminu' });
+        }
+
+        const collision = findCollision(newStartMinutes, newEndMinutes, existingOnYacht);
+
+        if (collision) {
+            const collisionEnd = minutesToTime(timeToMinutes(collision.start_time) + collision.hours * 60);
+            const altYacht = INTERCHANGEABLE_YACHT[effectiveYacht];
+
+            if (altYacht) {
+                const { data: existingOnAlt, error: altErr } = await supabase
+                    .from('reservations')
+                    .select('id, start_time, hours')
+                    .eq('yacht', altYacht)
+                    .eq('date', effectiveDate)
+                    .in('status', ['pending', 'approved'])
+                    .neq('id', req.params.id);
+
+                if (!altErr) {
+                    const altCollision = findCollision(newStartMinutes, newEndMinutes, existingOnAlt);
+                    if (!altCollision) {
+                        return res.status(409).json({
+                            error: `Kolizja z rezerwacją "${collision.customer_name}" (${collision.start_time}-${collisionEnd}) na jachcie ${effectiveYacht.toUpperCase()}.`,
+                            suggestedYacht: altYacht
+                        });
+                    }
+                }
+            }
+
+            return res.status(409).json({
+                error: `Kolizja z rezerwacją "${collision.customer_name}" (${collision.start_time}-${collisionEnd}) na jachcie ${effectiveYacht.toUpperCase()}.`,
+                suggestedYacht: null
+            });
+        }
+
+        updates.yacht = effectiveYacht;
+        updates.date = effectiveDate;
+        updates.start_time = effectiveStartTime;
+        updates.hours = effectiveHours;
+        updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, currentRes.tackle, currentRes.skipper);
     }
 
     if (adminId) {
