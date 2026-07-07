@@ -223,6 +223,7 @@
                 <div class="button-group" style="margin-bottom: 20px;">
                     <button class="btn-info" onclick="showAllReservationsModal()">📋 Wszystkie rezerwacje</button>
                     <button class="btn-primary" onclick="showManageAdminsModal()">👥 Zarządzaj opiekunami</button>
+                    <button class="btn-success" onclick="showReportModal()">📊 Generuj Raport</button>
                 </div>
                 <div class="section">
                     <h2>📅 Kalendarz Rezerwacji</h2>
@@ -350,6 +351,26 @@
                 <button class="close-modal" onclick="closeManageAdminsModal()">&times;</button>
             </div>
             <div id="manageAdminsContent"></div>
+        </div>
+    </div>
+
+    <div id="reportModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>📊 Raport Miesięczny</h2>
+                <button class="close-modal" onclick="closeReportModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Wybierz miesiąc:</label>
+                <input type="month" id="reportMonth">
+            </div>
+            <div class="deposit-info">
+                Raport zawiera przychód klubu (wynajem jachtów) i przychód opiekunów (taklowanie + asysta skippera), wyłącznie z rezerwacji <strong>zatwierdzonych</strong>. Kaucje nie są wliczane.
+            </div>
+            <div class="button-group">
+                <button class="btn-success" onclick="generateReport()">Pobierz Raport PDF</button>
+                <button class="btn-secondary" onclick="closeReportModal()">Anuluj</button>
+            </div>
         </div>
     </div>
 
@@ -1141,6 +1162,56 @@
 
         function closeManageAdminsModal() {
             document.getElementById('manageAdminsModal').classList.remove('show');
+        }
+
+        function showReportModal() {
+            // Domyślnie ustaw bieżący miesiąc
+            const now = new Date();
+            const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            document.getElementById('reportMonth').value = defaultMonth;
+            document.getElementById('reportModal').classList.add('show');
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.remove('show');
+        }
+
+        function generateReport() {
+            const month = document.getElementById('reportMonth').value; // format: YYYY-MM
+            if (!month) {
+                showAlert('Wybierz miesiąc!', 'error');
+                return;
+            }
+
+            showAlert('Generowanie raportu...', 'info');
+
+            // Pobranie PDF wymaga dołączenia tokenu - nie da się użyć zwykłego linku <a href>,
+            // więc pobieramy jako blob i wyzwalamy pobranie ręcznie.
+            fetch(API_BASE_URL + '/api/reports/monthly?month=' + encodeURIComponent(month), {
+                headers: { 'Authorization': 'Bearer ' + adminToken }
+            })
+            .then(async r => {
+                if (!r.ok) {
+                    const data = await r.json();
+                    throw new Error(data.error || 'Błąd generowania raportu');
+                }
+                return r.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `raport-${month}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                closeReportModal();
+                showAlert('Raport pobrany!', 'success');
+            })
+            .catch(err => {
+                showAlert('❌ ' + err.message, 'error');
+            });
         }
 
         function renderManageAdminsModalContent() {
