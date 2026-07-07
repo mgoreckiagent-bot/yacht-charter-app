@@ -4,6 +4,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const { createClient } = require('@supabase/supabase-js');
+const PDFDocument = require('pdfkit');
 
 dotenv.config();
 
@@ -130,6 +131,17 @@ function calculateTotalPrice(yacht, hours, tackle, skipper) {
     if (tackle) total += TACKLE_PRICE;
     if (skipper) total += SKIPPER_HOURLY_PRICE * hours;
     return total;
+}
+
+// Podział przychodu: wynajem jachtu -> klub, taklowanie + asysta skippera -> opiekun.
+// Liczone raz, w momencie tworzenia rezerwacji, i zapisywane na stałe w bazie
+// (nie przeliczane dynamicznie przy raportach - stabilność księgowa mimo przyszłych zmian cennika).
+function calculateRevenueSplit(yacht, hours, tackle, skipper) {
+    const clubRevenue = YACHT_PRICES[yacht] * hours;
+    let skipperRevenue = 0;
+    if (tackle) skipperRevenue += TACKLE_PRICE;
+    if (skipper) skipperRevenue += SKIPPER_HOURLY_PRICE * hours;
+    return { clubRevenue, skipperRevenue };
 }
 
 function timeToMinutes(timeStr) {
@@ -290,6 +302,7 @@ app.post('/api/reservations', async (req, res) => {
     }
 
     const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    const { clubRevenue, skipperRevenue } = calculateRevenueSplit(yacht, parsedHours, Boolean(tackle), Boolean(skipper));
 
     const { data, error } = await supabase
         .from('reservations')
@@ -302,6 +315,8 @@ app.post('/api/reservations', async (req, res) => {
             tackle: Boolean(tackle),
             skipper: Boolean(skipper),
             total_price: parseInt(totalPrice),
+            club_revenue: clubRevenue,
+            skipper_revenue: skipperRevenue,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone,
@@ -485,6 +500,9 @@ app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
         updates.start_time = effectiveStartTime;
         updates.hours = effectiveHours;
         updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, currentRes.tackle, currentRes.skipper);
+        const revenueSplit = calculateRevenueSplit(effectiveYacht, effectiveHours, currentRes.tackle, currentRes.skipper);
+        updates.club_revenue = revenueSplit.clubRevenue;
+        updates.skipper_revenue = revenueSplit.skipperRevenue;
     }
 
     if (adminId) {
@@ -704,6 +722,113 @@ app.delete('/api/unavailability/:id', verifyAnyToken, async (req, res) => {
     }
 
     res.json({ message: 'Wpis usunięty' });
+});
+
+// ============================================
+// RAPORT MIESIĘCZNY (PDF) - przychód klubu i opiekunów
+// ============================================
+
+const FONT_REGULAR = path.join(__dirname, 'fonts', 'DejaVuSans.ttf');
+const FONT_BOLD = path.join(__dirname, 'fonts', 'DejaVuSans-Bold.ttf');
+const MONTH_NAMES_PL = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+const YACHT_LABELS = { enn: 'Enn', first: 'First', omega: 'Omega' };
+
+app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
+    const { month } = req.query; // oczekiwany format: "2026-07"
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ error: 'Nieprawidłowy format miesiąca (oczekiwano YYYY-MM)' });
+    }
+
+    const [yearStr, monthStr] = month.split('-');
+    const year = parseInt(yearStr);
+    const monthNum = parseInt(monthStr);
+
+    if (monthNum < 1 || monthNum > 12) {
+        return res.status(400).json({ error: 'Nieprawidłowy numer miesiąca' });
+    }
+
+    const startDate = `${month}-01`;
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+    const { data: reservations, error } = await supabase
+        .from('reservations')
+        .select('yacht, club_revenue, skipper_revenue, admin:admins(id, name)')
+        .eq('status', 'approved')
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+    if (error) {
+        console.error('Supabase select error:', error);
+        return res.status(500).json({ error: 'Błąd pobierania danych do raportu' });
+    }
+
+    // Agregacja: przychód klubu wg jachtu
+    const byYacht = { enn: 0, first: 0, omega: 0 };
+    let totalClub = 0;
+
+    // Agregacja: przychód opiekunów wg osoby
+    const bySkipper = {};
+    let totalSkipper = 0;
+
+    reservations.forEach(r => {
+        byYacht[r.yacht] = (byYacht[r.yacht] || 0) + (r.club_revenue || 0);
+        totalClub += (r.club_revenue || 0);
+
+        if (r.skipper_revenue > 0 && r.admin) {
+            const name = r.admin.name;
+            bySkipper[name] = (bySkipper[name] || 0) + r.skipper_revenue;
+            totalSkipper += r.skipper_revenue;
+        }
+    });
+
+    const monthLabel = `${MONTH_NAMES_PL[monthNum - 1]} ${year}`;
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="raport-${month}.pdf"`);
+    doc.pipe(res);
+
+    // Nagłówek
+    doc.font(FONT_BOLD).fontSize(20).text('Yacht Klub Lublin', { align: 'center' });
+    doc.font(FONT_REGULAR).fontSize(15).text(`Raport przychodów — ${monthLabel}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Sekcja: przychód klubu wg jachtu
+    doc.font(FONT_BOLD).fontSize(14).text('Przychód klubu wg jachtu');
+    doc.moveDown(0.5);
+    doc.font(FONT_REGULAR).fontSize(12);
+    ['enn', 'first', 'omega'].forEach(y => {
+        doc.text(`${YACHT_LABELS[y]}:  ${byYacht[y]} zł`);
+    });
+    doc.moveDown(0.3);
+    doc.font(FONT_BOLD).fontSize(13).text(`RAZEM KLUB:  ${totalClub} zł`);
+    doc.moveDown(2);
+
+    // Sekcja: przychód opiekunów
+    doc.font(FONT_BOLD).fontSize(14).text('Przychód opiekunów');
+    doc.moveDown(0.5);
+    doc.font(FONT_REGULAR).fontSize(12);
+
+    const skipperEntries = Object.entries(bySkipper);
+    if (skipperEntries.length === 0) {
+        doc.text('Brak przychodu opiekunów w tym miesiącu.');
+    } else {
+        skipperEntries.forEach(([name, amount]) => {
+            doc.text(`${name}:  ${amount} zł`);
+        });
+    }
+    doc.moveDown(0.3);
+    doc.font(FONT_BOLD).fontSize(13).text(`RAZEM OPIEKUNOWIE:  ${totalSkipper} zł`);
+    doc.moveDown(3);
+
+    // Stopka
+    doc.font(FONT_REGULAR).fontSize(9).fillColor('#888888')
+        .text(`Wygenerowano automatycznie: ${new Date().toLocaleString('pl-PL')}`, { align: 'center' });
+
+    doc.end();
 });
 
 // ============================================

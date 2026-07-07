@@ -8,6 +8,7 @@ RUN npm install --production
 
 COPY server.js .
 COPY public/ ./public/
+COPY fonts/ ./fonts/
 
 EXPOSE 3000
 
