@@ -754,7 +754,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
 
     const { data: reservations, error } = await supabase
         .from('reservations')
-        .select('yacht, club_revenue, skipper_revenue, admin:admins(id, name)')
+        .select('yacht, club_revenue, admin:admins(id, name)')
         .eq('status', 'approved')
         .gte('date', startDate)
         .lte('date', endDate);
@@ -768,18 +768,22 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
     const byYacht = { enn: 0, first: 0, omega: 0 };
     let totalClub = 0;
 
-    // Agregacja: przychód opiekunów wg osoby
-    const bySkipper = {};
-    let totalSkipper = 0;
+    // Agregacja: liczba obsłużonych czarterów wg opiekuna
+    // (opiekunowie nie otrzymują od klubu gratyfikacji pieniężnej za taklowanie/asystę -
+    // te opłaty trafiają do nich bezpośrednio od klienta i nie są istotne z punktu widzenia
+    // księgowości klubu; liczy się tu wyłącznie liczba obsłużonych czarterów, jako wkład
+    // do puli godzin przepracowanych dla klubu)
+    const byAdminCount = {};
+    let totalHandledCharters = 0;
 
     reservations.forEach(r => {
         byYacht[r.yacht] = (byYacht[r.yacht] || 0) + (r.club_revenue || 0);
         totalClub += (r.club_revenue || 0);
 
-        if (r.skipper_revenue > 0 && r.admin) {
+        if (r.admin) {
             const name = r.admin.name;
-            bySkipper[name] = (bySkipper[name] || 0) + r.skipper_revenue;
-            totalSkipper += r.skipper_revenue;
+            byAdminCount[name] = (byAdminCount[name] || 0) + 1;
+            totalHandledCharters += 1;
         }
     });
 
@@ -793,7 +797,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
 
     // Nagłówek
     doc.font(FONT_BOLD).fontSize(20).text('Yacht Klub Lublin', { align: 'center' });
-    doc.font(FONT_REGULAR).fontSize(15).text(`Raport przychodów — ${monthLabel}`, { align: 'center' });
+    doc.font(FONT_REGULAR).fontSize(15).text(`Raport miesięczny — ${monthLabel}`, { align: 'center' });
     doc.moveDown(2);
 
     // Sekcja: przychód klubu wg jachtu
@@ -807,21 +811,26 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
     doc.font(FONT_BOLD).fontSize(13).text(`RAZEM KLUB:  ${totalClub} zł`);
     doc.moveDown(2);
 
-    // Sekcja: przychód opiekunów
-    doc.font(FONT_BOLD).fontSize(14).text('Przychód opiekunów');
+    // Sekcja: liczba obsłużonych czarterów wg opiekuna
+    doc.font(FONT_BOLD).fontSize(14).text('Liczba obsłużonych czarterów wg opiekuna');
+    doc.moveDown(0.3);
+    doc.font(FONT_REGULAR).fontSize(9).fillColor('#888888')
+        .text('(wkład do puli godzin przepracowanych dla klubu - opiekunowie nie otrzymują od klubu gratyfikacji pieniężnej za taklowanie/asystę)');
+    doc.fillColor('#000000');
     doc.moveDown(0.5);
     doc.font(FONT_REGULAR).fontSize(12);
 
-    const skipperEntries = Object.entries(bySkipper);
-    if (skipperEntries.length === 0) {
-        doc.text('Brak przychodu opiekunów w tym miesiącu.');
+    const adminEntries = Object.entries(byAdminCount).sort((a, b) => b[1] - a[1]);
+    if (adminEntries.length === 0) {
+        doc.text('Brak obsłużonych czarterów w tym miesiącu.');
     } else {
-        skipperEntries.forEach(([name, amount]) => {
-            doc.text(`${name}:  ${amount} zł`);
+        adminEntries.forEach(([name, count]) => {
+            const label = count === 1 ? 'czarter' : 'czartery(-ów)';
+            doc.text(`${name}:  ${count} ${label}`);
         });
     }
     doc.moveDown(0.3);
-    doc.font(FONT_BOLD).fontSize(13).text(`RAZEM OPIEKUNOWIE:  ${totalSkipper} zł`);
+    doc.font(FONT_BOLD).fontSize(13).text(`RAZEM OBSŁUŻONYCH CZARTERÓW:  ${totalHandledCharters}`);
     doc.moveDown(3);
 
     // Stopka
