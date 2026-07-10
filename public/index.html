@@ -142,6 +142,10 @@
                 </div>
                 <table class="calendar" id="customerCalendarTable"></table>
                 <p style="text-align:center;color:#666;margin-top:10px;font-size:14px;">Kliknij dzień, aby ustawić datę rezerwacji w formularzu poniżej.</p>
+                <p style="text-align:center;color:#666;font-size:13px;">
+                    <span style="display:inline-block;width:10px;height:10px;background:#4CAF50;border-radius:2px;vertical-align:middle;"></span> zatwierdzone &nbsp;
+                    <span style="display:inline-block;width:10px;height:10px;background:#ff9800;border-radius:2px;vertical-align:middle;"></span> oczekujące
+                </p>
             </div>
             <div class="section" id="customerFormSection">
                 <h2>📅 Wylicz Cenę Czarteru</h2>
@@ -467,6 +471,20 @@
         // ============================================
 
         let customerCalendarDate = new Date();
+        let publicReservations = [];
+
+        function loadPublicReservations() {
+            fetch(API_BASE_URL + '/api/reservations/public')
+                .then(r => r.json())
+                .then(data => {
+                    publicReservations = data;
+                    renderCustomerCalendar();
+                })
+                .catch(err => {
+                    console.error('Błąd wczytywania dostępności:', err);
+                    renderCustomerCalendar(); // renderuj mimo błędu, tylko bez oznaczeń zajętości
+                });
+        }
 
         function renderCustomerCalendar() {
             const year = customerCalendarDate.getFullYear();
@@ -477,6 +495,7 @@
             const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Poniedziałek = pierwszy dzień tygodnia
             const dayNames = ['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'];
             const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+            const YACHT_SHORT = { enn: 'Enn', first: 'First', omega: 'Omega' };
 
             document.getElementById('customerCalendarTitle').textContent = `${monthNames[month]} ${year}`;
 
@@ -491,7 +510,16 @@
                 const isToday = date.toDateString() === new Date().toDateString();
                 const dateStr = toLocalDateStr(date);
                 let cellClass = isToday ? 'today' : '';
-                html += `<td class="${cellClass}" style="cursor:pointer;" onclick="selectCustomerDate('${dateStr}')"><div style="font-weight: bold;">${day}</div></td>`;
+
+                const dayReservations = publicReservations.filter(r => r.date === dateStr);
+
+                html += `<td class="${cellClass}" style="cursor:pointer;" onclick="selectCustomerDate('${dateStr}')"><div style="font-weight: bold;">${day}</div>`;
+                dayReservations.forEach(r => {
+                    const statusClass = r.status === 'approved' ? 'approved' : 'pending';
+                    html += `<div class="reservation ${statusClass}" style="font-size:9px; padding:2px 4px;">${YACHT_SHORT[r.yacht]} ${r.startTime}</div>`;
+                });
+                html += '</td>';
+
                 if ((day + startingDayOfWeek) % 7 === 0 && day < daysInMonth) html += '</tr><tr>';
             }
 
@@ -1512,7 +1540,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             updatePrice();
-            renderCustomerCalendar();
+            loadPublicReservations();
             if (adminToken) {
                 document.getElementById('adminLogin').style.display = 'none';
                 document.getElementById('adminPanel').classList.add('active');
