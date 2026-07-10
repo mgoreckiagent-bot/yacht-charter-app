@@ -393,6 +393,31 @@ app.get('/api/reservations', verifyAdminToken, async (req, res) => {
     res.json(data.map(mapReservation));
 });
 
+// Publiczny widok rezerwacji - bez logowania, dla klientów wybierających termin.
+// Celowo pobiera z bazy WYŁĄCZNIE pola niezawierające danych osobowych - żadnych
+// customer_name/email/phone. To nie jest tylko "ukrycie" tych pól w odpowiedzi,
+// tylko w ogóle ich nie pobieramy z bazy, więc nie ma ryzyka przypadkowego wycieku.
+app.get('/api/reservations/public', async (req, res) => {
+    const { data, error } = await supabase
+        .from('reservations')
+        .select('yacht, date, start_time, hours, status')
+        .in('status', ['pending', 'approved'])
+        .order('date', { ascending: true });
+
+    if (error) {
+        console.error('Supabase select error:', error);
+        return res.status(500).json({ error: 'Błąd pobierania dostępności' });
+    }
+
+    res.json(data.map(r => ({
+        yacht: r.yacht,
+        date: r.date,
+        startTime: r.start_time,
+        hours: r.hours,
+        status: r.status
+    })));
+});
+
 app.get('/api/reservations/:id', async (req, res) => {
     const { data, error } = await supabase
         .from('reservations')
