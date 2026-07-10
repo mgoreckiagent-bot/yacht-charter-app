@@ -100,7 +100,8 @@ function mapReservation(row) {
         customerPhone: row.customer_phone,
         status: row.status,
         admin: row.admin || null,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        isClubReservation: row.is_club_reservation || false
     };
 }
 
@@ -379,6 +380,77 @@ app.post('/api/reservations', async (req, res) => {
     res.status(201).json({ message: 'Rezerwacja utworzona', reservation });
 });
 
+// Rezerwacja "własna klubu" (np. przegląd techniczny, rejs integracyjny) - dostępna
+// WYŁĄCZNIE z panelu klubowego (verifyAdminToken). Bez ceny/kosztu, nie wlicza się
+// do puli obsłużonych czarterów opiekunów w raporcie miesięcznym, i nie wysyła
+// żadnych e-maili (nie ma prawdziwego klienta).
+app.post('/api/reservations/club', verifyAdminToken, async (req, res) => {
+    const { yacht, date, startTime, hours, purpose } = req.body;
+
+    if (!yacht || !date || !startTime || !hours || !purpose || !purpose.trim()) {
+        return res.status(400).json({ error: 'Brakuje wymaganych pól (jacht, data, godzina, liczba godzin, cel rezerwacji)' });
+    }
+
+    const parsedHours = parseInt(hours);
+
+    // Ta sama walidacja kolizji co przy zwykłej rezerwacji - klub też nie może
+    // zarezerwować jachtu zajętego przez płacącego klienta.
+    const { data: existingReservations, error: fetchErr } = await supabase
+        .from('reservations')
+        .select('start_time, hours')
+        .eq('yacht', yacht)
+        .eq('date', date)
+        .in('status', ['pending', 'approved']);
+
+    if (fetchErr) {
+        console.error('Supabase select error:', fetchErr);
+        return res.status(500).json({ error: 'Błąd sprawdzania dostępności terminu' });
+    }
+
+    const newStartMinutes = timeToMinutes(startTime);
+    const newEndMinutes = newStartMinutes + parsedHours * 60;
+    const collision = findCollision(newStartMinutes, newEndMinutes, existingReservations);
+
+    if (collision) {
+        const suggestedStartTime = findEarliestAvailableSlot(parsedHours, existingReservations);
+        return res.status(409).json({
+            error: 'Wybrany termin koliduje z inną rezerwacją tego jachtu.',
+            suggestedStartTime: suggestedStartTime || null
+        });
+    }
+
+    const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+    const { data, error } = await supabase
+        .from('reservations')
+        .insert({
+            id,
+            yacht,
+            date,
+            start_time: startTime,
+            hours: parsedHours,
+            tackle: false,
+            skipper: false,
+            total_price: 0,
+            club_revenue: 0,
+            skipper_revenue: 0,
+            customer_name: `Rezerwacja klubowa: ${purpose.trim()}`,
+            customer_email: 'klub@wewnetrzna.local',
+            customer_phone: null,
+            status: 'approved',
+            is_club_reservation: true
+        })
+        .select('*, admin:admins(id, name, phone, email)')
+        .single();
+
+    if (error) {
+        console.error('Supabase insert error:', error);
+        return res.status(500).json({ error: 'Błąd zapisu rezerwacji klubowej' });
+    }
+
+    res.status(201).json({ message: 'Rezerwacja klubowa utworzona', reservation: mapReservation(data) });
+});
+
 app.get('/api/reservations', verifyAdminToken, async (req, res) => {
     const { data, error } = await supabase
         .from('reservations')
@@ -610,14 +682,16 @@ app.delete('/api/reservations/:id', verifyAdminToken, async (req, res) => {
 
     const reservation = mapReservation(data);
 
-    sendEmail(
-        reservation.customerEmail,
-        `Anulowanie rezerwacji - ${reservation.id}`,
-        `
-            <h2>Rezerwacja Anulowana</h2>
-            <p>Rezerwacja czarteru jachtu ${reservation.yacht.toUpperCase()} na dzień ${new Date(reservation.date).toLocaleDateString('pl-PL')} została anulowana.</p>
-        `
-    );
+    if (!reservation.isClubReservation) {
+        sendEmail(
+            reservation.customerEmail,
+            `Anulowanie rezerwacji - ${reservation.id}`,
+            `
+                <h2>Rezerwacja Anulowana</h2>
+                <p>Rezerwacja czarteru jachtu ${reservation.yacht.toUpperCase()} na dzień ${new Date(reservation.date).toLocaleDateString('pl-PL')} została anulowana.</p>
+            `
+        );
+    }
 
     res.json({ message: 'Rezerwacja anulowana' });
 });
@@ -781,6 +855,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
         .from('reservations')
         .select('yacht, club_revenue, admin:admins(id, name)')
         .eq('status', 'approved')
+        .eq('is_club_reservation', false)
         .gte('date', startDate)
         .lte('date', endDate);
 
