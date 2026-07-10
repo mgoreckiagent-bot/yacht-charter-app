@@ -228,6 +228,7 @@
                     <button class="btn-info" onclick="showAllReservationsModal()">📋 Wszystkie rezerwacje</button>
                     <button class="btn-primary" onclick="showManageAdminsModal()">👥 Zarządzaj opiekunami</button>
                     <button class="btn-success" onclick="showReportModal()">📊 Generuj Raport</button>
+                    <button class="btn-secondary" onclick="showClubReservationModal()">🏛️ Rezerwacja klubowa</button>
                 </div>
                 <div class="section">
                     <h2>📅 Kalendarz Rezerwacji</h2>
@@ -374,6 +375,46 @@
             <div class="button-group">
                 <button class="btn-success" onclick="generateReport()">Pobierz Raport PDF</button>
                 <button class="btn-secondary" onclick="closeReportModal()">Anuluj</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clubReservationModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>🏛️ Rezerwacja Klubowa</h2>
+                <button class="close-modal" onclick="closeClubReservationModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Jacht:</label>
+                <select id="clubResYacht">
+                    <option value="enn">Enn</option>
+                    <option value="first">First</option>
+                    <option value="omega">Omega</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Data:</label>
+                <input type="date" id="clubResDate">
+            </div>
+            <div class="form-group">
+                <label>Godzina początkowa:</label>
+                <input type="time" id="clubResStartTime">
+            </div>
+            <div class="form-group">
+                <label>Ilość godzin:</label>
+                <input type="number" id="clubResHours" min="1" max="24" value="2">
+            </div>
+            <div class="form-group">
+                <label>Cel rezerwacji:</label>
+                <input type="text" id="clubResPurpose" placeholder="np. przegląd techniczny, rejs integracyjny">
+            </div>
+            <div class="deposit-info">
+                Rezerwacja klubowa nie ma ceny i nie wlicza się do puli obsłużonych czarterów opiekunów. Zostanie od razu zatwierdzona.
+            </div>
+            <div class="button-group">
+                <button class="btn-success" onclick="submitClubReservation()">Utwórz Rezerwację</button>
+                <button class="btn-secondary" onclick="closeClubReservationModal()">Anuluj</button>
             </div>
         </div>
     </div>
@@ -833,6 +874,11 @@
         }
 
         function reservationLabelHTML(res, showTime) {
+            if (res.isClubReservation) {
+                const firstLine = showTime ? res.startTime : res.yacht;
+                return `<div>${firstLine}</div><div style="font-size:10px;font-weight:bold;">🏛️ KLUB</div>`;
+            }
+
             let symbols = '';
             if (res.tackle && res.skipper) symbols = 'TA';
             else if (res.tackle) symbols = 'T';
@@ -1239,6 +1285,58 @@
             })
             .catch(err => {
                 showAlert('❌ ' + err.message, 'error');
+            });
+        }
+
+        function showClubReservationModal() {
+            document.getElementById('clubResYacht').value = 'enn';
+            document.getElementById('clubResDate').value = '';
+            document.getElementById('clubResStartTime').value = '';
+            document.getElementById('clubResHours').value = '2';
+            document.getElementById('clubResPurpose').value = '';
+            document.getElementById('clubReservationModal').classList.add('show');
+        }
+
+        function closeClubReservationModal() {
+            document.getElementById('clubReservationModal').classList.remove('show');
+        }
+
+        function submitClubReservation() {
+            const yacht = document.getElementById('clubResYacht').value;
+            const date = document.getElementById('clubResDate').value;
+            const startTime = document.getElementById('clubResStartTime').value;
+            const hours = parseInt(document.getElementById('clubResHours').value);
+            const purpose = document.getElementById('clubResPurpose').value.trim();
+
+            if (!date || !startTime || !hours || !purpose) {
+                showAlert('Wypełnij wszystkie pola, w tym cel rezerwacji!', 'error');
+                return;
+            }
+
+            authFetch('/api/reservations/club', {
+                method: 'POST',
+                body: JSON.stringify({ yacht, date, startTime, hours, purpose })
+            })
+            .then(() => {
+                showAlert('Rezerwacja klubowa utworzona!', 'success');
+                closeClubReservationModal();
+                loadAdminData();
+            })
+            .catch(err => {
+                const suggestedStartTime = err.data && err.data.suggestedStartTime;
+                if (suggestedStartTime) {
+                    const useIt = confirm(
+                        `❌ ${err.message}\n\nNajbliższy wolny termin tego dnia: ${suggestedStartTime}. Czy zastosować tę godzinę i spróbować ponownie?`
+                    );
+                    if (useIt) {
+                        document.getElementById('clubResStartTime').value = suggestedStartTime;
+                        submitClubReservation();
+                    } else {
+                        showAlert('❌ ' + err.message, 'error');
+                    }
+                } else {
+                    showAlert('❌ ' + err.message, 'error');
+                }
             });
         }
 
