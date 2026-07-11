@@ -454,6 +454,20 @@
             return `${y}-${m}-${d}`;
         }
 
+        // Wspólna reguła sortowania rezerwacji (kalendarz, lista, "Wszystkie rezerwacje"):
+        // 1. Oczekujące (pending) zawsze nad zatwierdzonymi - wymagają uwagi admina
+        // 2. W obrębie tej samej grupy: data rosnąco, potem jacht alfabetycznie, potem godzina startu
+        function compareReservations(a, b) {
+            const statusRank = r => r.status === 'pending' ? 0 : 1;
+            const statusDiff = statusRank(a) - statusRank(b);
+            if (statusDiff !== 0) return statusDiff;
+
+            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+            if (a.yacht !== b.yacht) return a.yacht < b.yacht ? -1 : 1;
+            if (a.startTime !== b.startTime) return a.startTime < b.startTime ? -1 : 1;
+            return 0;
+        }
+
         function showAlert(message, type = 'info') {
             const alertBox = document.getElementById('alertBox');
             alertBox.className = `alert show ${type}`;
@@ -910,7 +924,9 @@
                 const date = new Date(year, month, day);
                 const isToday = date.toDateString() === new Date().toDateString();
                 const dateStr = toLocalDateStr(date);
-                const dayReservations = reservations.filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved'));
+                const dayReservations = reservations
+                    .filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved'))
+                    .sort(compareReservations);
                 let cellClass = isToday ? 'today' : '';
                 html += `<td class="${cellClass}"><div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
                 dayReservations.forEach(res => {
@@ -945,7 +961,7 @@
                 list.innerHTML = '<p style="text-align: center; color: #999;">Brak rezerwacji</p>';
                 return;
             }
-            const sorted = [...reservations].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = [...reservations].sort(compareReservations);
             let html = '';
             sorted.forEach(res => {
                 const statusClass = res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red';
@@ -1195,7 +1211,7 @@
                 container.innerHTML = '<p style="text-align:center;color:#999;">Brak rezerwacji</p>';
                 return;
             }
-            const sorted = [...reservations].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = [...reservations].sort(compareReservations);
             let html = '<div class="reservation-list">';
             sorted.forEach(res => {
                 const statusClass = res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red';
