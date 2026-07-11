@@ -29,6 +29,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'klub123';
 const SKIPPER_PASSWORD = process.env.SKIPPER_PASSWORD || 'skipper123';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -230,6 +232,39 @@ async function sendEmail(to, subject, html) {
 }
 
 // ============================================
+// TELEGRAM - POWIADOMIENIA DLA OPIEKUNÓW (HTTPS API - działa na Railway)
+// ============================================
+
+async function sendTelegramMessage(text) {
+    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+        console.error('Telegram error: TELEGRAM_BOT_TOKEN lub TELEGRAM_CHAT_ID nie jest ustawiony');
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                text: text,
+                parse_mode: 'HTML'
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            console.error('Telegram error:', data);
+        } else {
+            console.log('Telegram: wiadomość wysłana do grupy');
+        }
+    } catch (err) {
+        console.error('Telegram error (network):', err.message);
+    }
+}
+
+// ============================================
 // AUTHENTICATION ENDPOINTS
 // ============================================
 
@@ -376,6 +411,20 @@ app.post('/api/reservations', async (req, res) => {
             `
         );
     });
+
+    const extrasParts = [];
+    if (reservation.tackle) extrasParts.push('taklowanie');
+    if (reservation.skipper) extrasParts.push('asysta skippera');
+    const extrasText = extrasParts.length > 0 ? ` (${extrasParts.join(' + ')})` : '';
+    const dateLabel = new Date(reservation.date).toLocaleDateString('pl-PL');
+
+    sendTelegramMessage(
+        `⛵ <b>Nowa rezerwacja czeka na zatwierdzenie</b>\n\n` +
+        `Jacht: <b>${reservation.yacht.toUpperCase()}</b>\n` +
+        `Data: <b>${dateLabel}</b>, godz. <b>${reservation.startTime}</b> (${reservation.hours}h)${extrasText}\n` +
+        `Klient: ${reservation.customerName}, tel. ${reservation.customerPhone || 'brak'}\n\n` +
+        `Zaloguj się do panelu klubowego, aby przypisać opiekuna.`
+    );
 
     res.status(201).json({ message: 'Rezerwacja utworzona', reservation });
 });
