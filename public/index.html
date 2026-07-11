@@ -70,6 +70,7 @@
         .reservation:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         .reservation.approved { background: #4CAF50; }
         .reservation.pending { background: #ff9800; }
+        .reservation.realized { background: #e0e0e0; color: #616161; }
         .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
         .calendar-nav button { padding: 10px 20px; }
         .calendar-title { font-size: 20px; font-weight: bold; color: #333; flex: 1; text-align: center; }
@@ -93,10 +94,12 @@
         .reservation-item.red { border-left-color: #ff6b6b; }
         .reservation-item.green { border-left-color: #4CAF50; }
         .reservation-item.orange { border-left-color: #ff9800; }
+        .reservation-item.gray { border-left-color: #9e9e9e; background: #f0f0f0; }
         .reservation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .reservation-status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
         .reservation-status.pending { background: #ffe0b2; color: #e65100; }
         .reservation-status.approved { background: #c8e6c9; color: #2e7d32; }
+        .reservation-status.realized { background: #e0e0e0; color: #616161; }
         .reservation-details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px; }
         .detail-item { display: flex; flex-direction: column; }
         .detail-label { color: #666; font-weight: 500; margin-bottom: 3px; }
@@ -454,17 +457,24 @@
             return `${y}-${m}-${d}`;
         }
 
+        // Rezerwacja jest "zrealizowana" (przeszła), jeśli jej data jest wcześniejsza niż dzisiaj -
+        // niezależnie od zapisanego w bazie statusu pending/approved (to czysto wizualna kategoria,
+        // nic w bazie się nie zmienia).
+        function isPastReservation(res) {
+            return res.date < toLocalDateStr(new Date());
+        }
+
         // Wspólna reguła sortowania rezerwacji (kalendarz, lista, "Wszystkie rezerwacje"):
-        // 1. Oczekujące (pending) zawsze nad zatwierdzonymi - wymagają uwagi admina
-        // 2. W obrębie tej samej grupy: data rosnąco, potem jacht alfabetycznie, potem godzina startu
+        // 1. Oczekujące (pending) najpierw, potem zatwierdzone, na samym końcu zrealizowane (przeszłe)
+        // 2. W obrębie tej samej grupy: data rosnąco, potem godzina rozpoczęcia, potem jacht alfabetycznie
         function compareReservations(a, b) {
-            const statusRank = r => r.status === 'pending' ? 0 : 1;
+            const statusRank = r => isPastReservation(r) ? 2 : (r.status === 'pending' ? 0 : 1);
             const statusDiff = statusRank(a) - statusRank(b);
             if (statusDiff !== 0) return statusDiff;
 
             if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            if (a.yacht !== b.yacht) return a.yacht < b.yacht ? -1 : 1;
             if (a.startTime !== b.startTime) return a.startTime < b.startTime ? -1 : 1;
+            if (a.yacht !== b.yacht) return a.yacht < b.yacht ? -1 : 1;
             return 0;
         }
 
@@ -930,7 +940,7 @@
                 let cellClass = isToday ? 'today' : '';
                 html += `<td class="${cellClass}"><div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
                 dayReservations.forEach(res => {
-                    const statusClass = res.status === 'approved' ? 'approved' : 'pending';
+                    const statusClass = isPastReservation(res) ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
                     html += `<div class="reservation ${statusClass}" title="${res.yacht}" onclick="event.stopPropagation(); showReservationDetails('${res.id}')">${reservationLabelHTML(res, false)}</div>`;
                 });
                 html += '</td>';
@@ -964,8 +974,10 @@
             const sorted = [...reservations].sort(compareReservations);
             let html = '';
             sorted.forEach(res => {
-                const statusClass = res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red';
-                const statusText = res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana';
+                const isPast = isPastReservation(res);
+                const statusClass = isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
+                const statusText = isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
+                const badgeClass = isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
                 const endTime = new Date(`2000-01-01 ${res.startTime}`);
                 endTime.setHours(endTime.getHours() + res.hours);
                 const endTimeStr = endTime.toTimeString().slice(0, 5);
@@ -973,7 +985,7 @@
                     <div class="reservation-item ${statusClass}">
                         <div class="reservation-header">
                             <div style="flex: 1;"><strong>${res.yacht}</strong> - ${new Date(res.date).toLocaleDateString('pl-PL')} ${res.startTime}-${endTimeStr}</div>
-                            <span class="reservation-status ${res.status === 'approved' ? 'approved' : 'pending'}">${statusText}</span>
+                            <span class="reservation-status ${badgeClass}">${statusText}</span>
                         </div>
                         <div class="reservation-details">
                             <div class="detail-item"><div class="detail-label">Klient:</div><div class="detail-value">${res.customerName || 'Nie podane'}</div></div>
@@ -1214,8 +1226,10 @@
             const sorted = [...reservations].sort(compareReservations);
             let html = '<div class="reservation-list">';
             sorted.forEach(res => {
-                const statusClass = res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red';
-                const statusText = res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana';
+                const isPast = isPastReservation(res);
+                const statusClass = isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
+                const statusText = isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
+                const badgeClass = isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
                 const endTime = new Date(`2000-01-01 ${res.startTime}`);
                 endTime.setHours(endTime.getHours() + res.hours);
                 const endTimeStr = endTime.toTimeString().slice(0, 5);
@@ -1223,7 +1237,7 @@
                     <div class="reservation-item ${statusClass}">
                         <div class="reservation-header">
                             <div style="flex: 1;"><strong>${res.yacht}</strong> - ${new Date(res.date).toLocaleDateString('pl-PL')} ${res.startTime}-${endTimeStr}</div>
-                            <span class="reservation-status ${res.status === 'approved' ? 'approved' : 'pending'}">${statusText}</span>
+                            <span class="reservation-status ${badgeClass}">${statusText}</span>
                         </div>
                         <div class="reservation-details">
                             <div class="detail-item"><div class="detail-label">Klient:</div><div class="detail-value">${res.customerName || 'Nie podane'}</div></div>
