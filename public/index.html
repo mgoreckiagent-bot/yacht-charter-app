@@ -1639,6 +1639,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             updatePrice();
             loadPublicReservations();
+
+            // Link z powiadomienia na Telegramie (.../#admin) od razu otwiera Panel Klubowy,
+            // zamiast lądować na domyślnym ekranie rezerwacji.
+            if (window.location.hash === '#admin') {
+                switchMode('admin');
+            }
+
             if (adminToken) {
                 document.getElementById('adminLogin').style.display = 'none';
                 document.getElementById('adminPanel').classList.add('active');
