@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const { createClient } = require('@supabase/supabase-js');
 const PDFDocument = require('pdfkit');
+const cron = require('node-cron');
 
 dotenv.config();
 
@@ -1020,6 +1021,64 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
+// CODZIENNE PODSUMOWANIE NA TELEGRAM (o 8:00 czasu polskiego)
+// ============================================
+
+async function sendDailyReservationsDigest() {
+    // Uruchamiane dokładnie o 8:00 czasu polskiego (patrz harmonogram cron niżej),
+    // więc data UTC w tym momencie zawsze pokrywa się z datą kalendarzową w Polsce
+    // (Polska to UTC+1/+2, więc 8:00 czasu polskiego to 6:00-7:00 UTC tego samego dnia -
+    // nie ma ryzyka "przeskoczenia" na inny dzień przy tej konkretnej porze).
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+        const { data: todaysReservations, error } = await supabase
+            .from('reservations')
+            .select('yacht, start_time, hours, tackle, skipper, customer_name, is_club_reservation, admin:admins(name)')
+            .eq('date', today)
+            .in('status', ['pending', 'approved'])
+            .order('start_time', { ascending: true });
+
+        if (error) {
+            console.error('Codzienne podsumowanie - błąd pobierania danych:', error);
+            return;
+        }
+
+        if (!todaysReservations || todaysReservations.length === 0) {
+            console.log('Codzienne podsumowanie: brak rezerwacji na dziś, nic nie wysyłam');
+            return; // brak czarterów - zgodnie z założeniem, nic się nie dzieje
+        }
+
+        const dateLabel = new Date(today).toLocaleDateString('pl-PL');
+        const lines = todaysReservations.map(r => {
+            const extrasParts = [];
+            if (r.tackle) extrasParts.push('taklowanie');
+            if (r.skipper) extrasParts.push('asysta skippera');
+            const extrasText = extrasParts.length > 0 ? ` (${extrasParts.join(' + ')})` : '';
+            const endTime = minutesToTime(timeToMinutes(r.start_time) + r.hours * 60);
+
+            if (r.is_club_reservation) {
+                return `🏛️ <b>${r.yacht.toUpperCase()}</b> ${r.start_time}-${endTime} — rezerwacja klubowa (${r.customer_name.replace('Rezerwacja klubowa: ', '')})`;
+            }
+
+            const adminText = r.admin ? `, opiekun: ${r.admin.name}` : ', opiekun: BRAK ⚠️';
+            return `⛵ <b>${r.yacht.toUpperCase()}</b> ${r.start_time}-${endTime}${extrasText} — ${r.customer_name}${adminText}`;
+        });
+
+        const message = `☀️ <b>Rezerwacje na dziś (${dateLabel})</b>\n\n${lines.join('\n')}`;
+
+        await sendTelegramMessage(message);
+        console.log(`Codzienne podsumowanie: wysłano (${todaysReservations.length} rezerwacji)`);
+    } catch (err) {
+        console.error('Codzienne podsumowanie - nieoczekiwany błąd:', err.message);
+    }
+}
+
+// Harmonogram: codziennie o 8:00 czasu polskiego (strefa uwzględnia automatycznie
+// zmianę czasu zima/lato, w przeciwieństwie do stałego przesunięcia UTC).
+cron.schedule('0 8 * * *', sendDailyReservationsDigest, { timezone: 'Europe/Warsaw' });
+
+// ============================================
 // START SERVER
 // ============================================
 
@@ -1030,6 +1089,7 @@ app.listen(PORT, () => {
     console.log(`📧 Email nadawca: ${EMAIL_FROM}`);
     console.log(`🔑 Resend API: ${RESEND_API_KEY ? 'skonfigurowany' : 'BRAK KLUCZA'}`);
     console.log(`🗄️  Supabase: ${SUPABASE_URL ? 'skonfigurowany' : 'BRAK KONFIGURACJI'}`);
+    console.log(`⏰ Codzienne podsumowanie Telegram: zaplanowane na 8:00 (Europe/Warsaw)`);
 });
 
 module.exports = app;
