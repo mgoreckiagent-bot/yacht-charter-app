@@ -585,7 +585,9 @@
                 const dateStr = toLocalDateStr(date);
                 let cellClass = isToday ? 'today' : '';
 
-                const dayReservations = publicReservations.filter(r => r.date === dateStr);
+                const dayReservations = publicReservations
+                    .filter(r => r.date === dateStr)
+                    .sort(compareByTimeAndYacht);
 
                 html += `<td class="${cellClass}" style="cursor:pointer;" onclick="selectCustomerDate('${dateStr}')"><div style="font-weight: bold;">${day}</div>`;
                 dayReservations.forEach(r => {
