@@ -1185,7 +1185,7 @@
 
             html += `
                 <div class="section">
-                    <button class="btn-info" style="width: 100%; margin-bottom: 10px;" onclick="editReservationContactForm('${res.id}')">✏️ Edytuj dane kontaktowe</button>
+                    <button class="btn-info" style="width: 100%; margin-bottom: 10px;" onclick="editReservationForm('${res.id}')">✏️ Edytuj rezerwację</button>
                     <button class="btn-danger" style="width: 100%;" onclick="cancelReservationConfirm('${res.id}')">🗑️ Anuluj rezerwację</button>
                 </div>
             `;
@@ -1196,7 +1196,7 @@
 
         function closeAdminReservationModal() { document.getElementById('adminReservationModal').classList.remove('show'); }
 
-        function editReservationContactForm(resId) {
+        function editReservationForm(resId) {
             const res = reservations.find(r => r.id === resId);
             if (!res) return;
 
