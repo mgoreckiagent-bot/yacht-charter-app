@@ -297,12 +297,13 @@ function sendApprovalEmail(reservation, admin) {
                 <li><strong>Razem do zapłaty:</strong> ${reservation.totalPrice} zł</li>
                 <li><strong>Kaucja zwrotna:</strong> 500 zł</li>
             </ul>
+            <p style="background:#fff3cd;color:#856404;padding:10px;border-radius:6px;">⚠️ Prosimy o przygotowanie odliczonej kwoty kaucji w gotówce. Brak możliwości wniesienia opłaty kartą.</p>
             <h3>Dane opiekuna czarteru:</h3>
             <ul>
                 <li><strong>Imię i nazwisko:</strong> ${admin.name}</li>
                 <li><strong>Telefon:</strong> <a href="tel:${admin.phone}">${admin.phone}</a></li>
             </ul>
-            <p>Pozdrawiamy,<br>Klub Żeglarski</p>
+            <p>Pozdrawiamy,<br>YKP Lublin</p>
         `
     );
 }
@@ -431,8 +432,9 @@ app.post('/api/reservations', async (req, res) => {
                 <li><strong>Razem do zapłaty:</strong> ${reservation.totalPrice} zł</li>
                 <li><strong>Kaucja zwrotna:</strong> 500 zł</li>
             </ul>
+            <p style="background:#fff3cd;color:#856404;padding:10px;border-radius:6px;">⚠️ Prosimy o przygotowanie odliczonej kwoty kaucji w gotówce. Brak możliwości wniesienia opłaty kartą.</p>
             <p>📌 Status zgłoszenia: <strong>Oczekuje na przydzielenie opiekuna</strong></p>
-            <p>Pozdrawiamy,<br>Klub Żeglarski</p>
+            <p>Pozdrawiamy,<br>YKP Lublin</p>
         `
     );
 
