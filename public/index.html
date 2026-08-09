@@ -154,12 +154,15 @@
                 <h2>📅 Wylicz Cenę Czarteru</h2>
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
-                    <select id="selectedYacht" onchange="updatePrice()">
+                    <select id="selectedYacht" onchange="onYachtChange()">
                         <option value="">-- Wybierz jacht --</option>
                         <option value="enn">Enn (80 zł/h)</option>
                         <option value="first">First (80 zł/h)</option>
                         <option value="omega">Omega (80 zł/h)</option>
                     </select>
+                </div>
+                <div id="omegaTackleNote" class="deposit-info" style="display:none; background:#fff3cd; border-left-color:#ffc107;">
+                    ⚠️ Jacht Omega wymaga obowiązkowego taklowania — zostało automatycznie dodane do rezerwacji i nie można go usunąć.
                 </div>
                 <div class="form-group">
                     <label>Data rezerwacji:</label>
@@ -503,6 +506,27 @@
             document.querySelector('.mode-btn.' + mode).classList.add('active');
         }
 
+        function onYachtChange() {
+            const yacht = document.getElementById('selectedYacht').value;
+            const tackleCheckbox = document.getElementById('tackleService');
+            const note = document.getElementById('omegaTackleNote');
+
+            if (yacht === 'omega') {
+                const wasAlreadyChecked = tackleCheckbox.checked;
+                tackleCheckbox.checked = true;
+                tackleCheckbox.disabled = true;
+                note.style.display = 'block';
+                if (!wasAlreadyChecked) {
+                    showAlert('Jacht Omega wymaga obowiązkowego taklowania — zostało automatycznie dodane.', 'info');
+                }
+            } else {
+                tackleCheckbox.disabled = false;
+                note.style.display = 'none';
+            }
+
+            updatePrice();
+        }
+
         function updatePrice() {
             const yacht = document.getElementById('selectedYacht').value;
             const hours = parseInt(document.getElementById('charterHours').value) || 0;
@@ -631,7 +655,9 @@
             document.getElementById('charterStartTime').value = '';
             document.getElementById('charterHours').value = '1';
             document.getElementById('tackleService').checked = false;
+            document.getElementById('tackleService').disabled = false;
             document.getElementById('skipperService').checked = false;
+            document.getElementById('omegaTackleNote').style.display = 'none';
             updatePrice();
         }
 
@@ -783,14 +809,18 @@
         function showEditModal() {
             const modal = document.getElementById('editModal');
             const content = document.getElementById('editContent');
+            const isOmega = currentReservation.yacht === 'omega';
             content.innerHTML = `
                 <div class="form-group">
                     <label>Wybierz jacht:</label>
-                    <select id="editYacht">
+                    <select id="editYacht" onchange="onEditYachtChange()">
                         <option value="enn" ${currentReservation.yacht === 'enn' ? 'selected' : ''}>Enn (80 zł/h)</option>
                         <option value="first" ${currentReservation.yacht === 'first' ? 'selected' : ''}>First (80 zł/h)</option>
                         <option value="omega" ${currentReservation.yacht === 'omega' ? 'selected' : ''}>Omega (80 zł/h)</option>
                     </select>
+                </div>
+                <div id="editOmegaTackleNote" class="deposit-info" style="display:${isOmega ? 'block' : 'none'}; background:#fff3cd; border-left-color:#ffc107;">
+                    ⚠️ Jacht Omega wymaga obowiązkowego taklowania — zostało automatycznie dodane do rezerwacji i nie można go usunąć.
                 </div>
                 <div class="form-group"><label>Data:</label><input type="date" id="editDate" value="${currentReservation.date}"></div>
                 <div class="form-group"><label>Godzina początkowa:</label><input type="time" id="editStartTime" value="${currentReservation.startTime}"></div>
@@ -798,7 +828,7 @@
                 <div class="form-group">
                     <label>Opcjonalne usługi:</label>
                     <div class="checkbox-group">
-                        <div class="checkbox-item"><input type="checkbox" id="editTackle" ${currentReservation.tackle ? 'checked' : ''}><label for="editTackle" style="margin: 0;">Z taklowaniem (+50 zł)</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="editTackle" ${(currentReservation.tackle || isOmega) ? 'checked' : ''} ${isOmega ? 'disabled' : ''}><label for="editTackle" style="margin: 0;">Z taklowaniem (+50 zł)</label></div>
                         <div class="checkbox-item"><input type="checkbox" id="editSkipper" ${currentReservation.skipper ? 'checked' : ''}><label for="editSkipper" style="margin: 0;">Asysta skippera (+50 zł/h)</label></div>
                     </div>
                 </div>
@@ -810,6 +840,25 @@
             modal.classList.add('show');
         }
 
+        function onEditYachtChange() {
+            const yacht = document.getElementById('editYacht').value;
+            const tackleCheckbox = document.getElementById('editTackle');
+            const note = document.getElementById('editOmegaTackleNote');
+
+            if (yacht === 'omega') {
+                const wasAlreadyChecked = tackleCheckbox.checked;
+                tackleCheckbox.checked = true;
+                tackleCheckbox.disabled = true;
+                note.style.display = 'block';
+                if (!wasAlreadyChecked) {
+                    showAlert('Jacht Omega wymaga obowiązkowego taklowania — zostało automatycznie dodane.', 'info');
+                }
+            } else {
+                tackleCheckbox.disabled = false;
+                note.style.display = 'none';
+            }
+        }
+
         function closeEditModal() { document.getElementById('editModal').classList.remove('show'); }
 
         function saveEditedReservation() {
@@ -818,7 +867,8 @@
             currentReservation.date = document.getElementById('editDate').value;
             currentReservation.startTime = document.getElementById('editStartTime').value;
             currentReservation.hours = parseInt(document.getElementById('editHours').value);
-            currentReservation.tackle = document.getElementById('editTackle').checked;
+            // Zabezpieczenie: Omega zawsze z taklowaniem, niezależnie od stanu checkboxa
+            currentReservation.tackle = currentReservation.yacht === 'omega' ? true : document.getElementById('editTackle').checked;
             currentReservation.skipper = document.getElementById('editSkipper').checked;
             currentReservation.totalPrice = calculateTotalPrice(currentReservation.yacht, currentReservation.hours, currentReservation.tackle, currentReservation.skipper);
             closeEditModal();
