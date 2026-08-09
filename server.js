@@ -131,6 +131,16 @@ const SKIPPER_HOURLY_PRICE = 50;
 // Jachty "enn" i "first" traktowane jako zamienne przy kolizji terminu
 const INTERCHANGEABLE_YACHT = { enn: 'first', first: 'enn' };
 
+// Omega ma obowiązkowe taklowanie - nie da się zarezerwować bez niego.
+// Wymuszane tutaj (backend), niezależnie od tego co przesłał frontend,
+// żeby żadna ścieżka (formularz klienta, edycja admina, itd.) nie mogła tego ominąć.
+const YACHTS_WITH_MANDATORY_TACKLE = ['omega'];
+
+function enforceMandatoryTackle(yacht, tackle) {
+    if (YACHTS_WITH_MANDATORY_TACKLE.includes(yacht)) return true;
+    return Boolean(tackle);
+}
+
 function calculateTotalPrice(yacht, hours, tackle, skipper) {
     let total = YACHT_PRICES[yacht] * hours;
     if (tackle) total += TACKLE_PRICE;
@@ -366,7 +376,15 @@ app.post('/api/reservations', async (req, res) => {
     }
 
     const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-    const { clubRevenue, skipperRevenue } = calculateRevenueSplit(yacht, parsedHours, Boolean(tackle), Boolean(skipper));
+
+    // Omega ma obowiązkowe taklowanie - wymuszone tutaj niezależnie od tego, co przesłał klient
+    const enforcedTackle = enforceMandatoryTackle(yacht, tackle);
+    const enforcedSkipper = Boolean(skipper);
+
+    // Cena i podział przychodu liczone spójnie po stronie serwera na podstawie wymuszonych wartości
+    // (nie ufamy total_price przesłanemu przez klienta - mogłoby nie uwzględniać obowiązkowego taklowania)
+    const computedTotalPrice = calculateTotalPrice(yacht, parsedHours, enforcedTackle, enforcedSkipper);
+    const { clubRevenue, skipperRevenue } = calculateRevenueSplit(yacht, parsedHours, enforcedTackle, enforcedSkipper);
 
     const { data, error } = await supabase
         .from('reservations')
@@ -376,9 +394,9 @@ app.post('/api/reservations', async (req, res) => {
             date,
             start_time: startTime,
             hours: parsedHours,
-            tackle: Boolean(tackle),
-            skipper: Boolean(skipper),
-            total_price: parseInt(totalPrice),
+            tackle: enforcedTackle,
+            skipper: enforcedSkipper,
+            total_price: computedTotalPrice,
             club_revenue: clubRevenue,
             skipper_revenue: skipperRevenue,
             customer_name: customerName,
@@ -499,6 +517,10 @@ app.post('/api/reservations/club', verifyAdminToken, async (req, res) => {
 
     const id = 'RES-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
+    // Dla spójności danych historycznych - Omega zawsze ma taklowanie, nawet w rezerwacji
+    // klubowej (cena i tak zawsze wynosi 0 zł, to tylko poprawny zapis faktycznego stanu).
+    const enforcedTackle = enforceMandatoryTackle(yacht, false);
+
     const { data, error } = await supabase
         .from('reservations')
         .insert({
@@ -507,7 +529,7 @@ app.post('/api/reservations/club', verifyAdminToken, async (req, res) => {
             date,
             start_time: startTime,
             hours: parsedHours,
-            tackle: false,
+            tackle: enforcedTackle,
             skipper: false,
             total_price: 0,
             club_revenue: 0,
@@ -674,8 +696,14 @@ app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
         updates.date = effectiveDate;
         updates.start_time = effectiveStartTime;
         updates.hours = effectiveHours;
-        updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, currentRes.tackle, currentRes.skipper);
-        const revenueSplit = calculateRevenueSplit(effectiveYacht, effectiveHours, currentRes.tackle, currentRes.skipper);
+
+        // Omega ma obowiązkowe taklowanie - wymuszone również przy edycji istniejącej
+        // rezerwacji (np. gdy admin zmienia jacht na Omegę, a taklowania wcześniej nie było)
+        const enforcedTackle = enforceMandatoryTackle(effectiveYacht, currentRes.tackle);
+        updates.tackle = enforcedTackle;
+
+        updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
+        const revenueSplit = calculateRevenueSplit(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
         updates.club_revenue = revenueSplit.clubRevenue;
         updates.skipper_revenue = revenueSplit.skipperRevenue;
     }
