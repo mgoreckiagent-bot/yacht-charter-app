@@ -105,7 +105,8 @@ function mapReservation(row) {
         status: row.status,
         admin: row.admin || null,
         createdAt: row.created_at,
-        isClubReservation: row.is_club_reservation || false
+        isClubReservation: row.is_club_reservation || false,
+        isCourseSession: row.is_course_session || false
     };
 }
 
@@ -480,6 +481,131 @@ app.post('/api/reservations', async (req, res) => {
     res.status(201).json({ message: 'Rezerwacja utworzona', reservation });
 });
 
+// Generator serii sesji kursu (np. na stopień żeglarza jachtowego) - dostępny WYŁĄCZNIE
+// z panelu klubowego. Tworzy jedną rezerwację na każdy pasujący dzień tygodnia w podanym
+// zakresie dat, zawsze bezpłatną, ze statusem "pending" (instruktor przydzielany później,
+// osobno do każdej sesji - tym samym mechanizmem co przy zwykłych czarterach).
+// Terminy kolidujące z istniejącymi rezerwacjami są pomijane, nie przerywają całej serii.
+app.post('/api/reservations/course-batch', verifyAdminToken, async (req, res) => {
+    const { yacht, startDate, endDate, daysOfWeek, startTime, hours, courseName } = req.body;
+
+    if (!yacht || !startDate || !endDate || !Array.isArray(daysOfWeek) || daysOfWeek.length === 0
+        || !startTime || !hours || !courseName || !courseName.trim()) {
+        return res.status(400).json({ error: 'Brakuje wymaganych pól (jacht, zakres dat, dni tygodnia, godzina, liczba godzin, nazwa kursu)' });
+    }
+
+    if (startDate > endDate) {
+        return res.status(400).json({ error: 'Data końcowa musi być późniejsza niż data początkowa' });
+    }
+
+    const parsedHours = parseInt(hours);
+    const weekdays = daysOfWeek.map(Number); // 0=niedziela ... 6=sobota (konwencja JS Date.getUTCDay())
+
+    // Wyliczenie wszystkich pasujących dat w zakresie - operacje wyłącznie na liczbach
+    // w UTC, żeby uniknąć błędów przesunięcia daty znanych z wcześniejszych problemów
+    // ze strefą czasową w tym projekcie.
+    const parseYMD = (str) => {
+        const [y, m, d] = str.split('-').map(Number);
+        return { y, m, d };
+    };
+    const start = parseYMD(startDate);
+    const end = parseYMD(endDate);
+    const endMs = Date.UTC(end.y, end.m - 1, end.d);
+
+    if (endMs - Date.UTC(start.y, start.m - 1, start.d) > 366 * 24 * 60 * 60 * 1000) {
+        return res.status(400).json({ error: 'Zakres dat jest zbyt długi (maksymalnie 366 dni) - sprawdź czy nie ma pomyłki w dacie' });
+    }
+
+    const candidateDates = [];
+    let cursor = Date.UTC(start.y, start.m - 1, start.d);
+    while (cursor <= endMs) {
+        const d = new Date(cursor);
+        if (weekdays.includes(d.getUTCDay())) {
+            const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+            candidateDates.push(dateStr);
+        }
+        cursor += 24 * 60 * 60 * 1000;
+    }
+
+    if (candidateDates.length === 0) {
+        return res.status(400).json({ error: 'Wybrany zakres dat i dni tygodnia nie dają ani jednego terminu' });
+    }
+
+    // Pobranie WSZYSTKICH istniejących rezerwacji tego jachtu w całym zakresie za jednym razem
+    // (zamiast osobnego zapytania na każdą kandydującą datę) - sprawdzanie kolizji odbywa się
+    // dalej w pamięci procesu.
+    const { data: existingReservations, error: fetchErr } = await supabase
+        .from('reservations')
+        .select('date, start_time, hours, customer_name')
+        .eq('yacht', yacht)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .in('status', ['pending', 'approved']);
+
+    if (fetchErr) {
+        console.error('Supabase select error:', fetchErr);
+        return res.status(500).json({ error: 'Błąd sprawdzania dostępności terminów' });
+    }
+
+    const newStartMinutes = timeToMinutes(startTime);
+    const newEndMinutes = newStartMinutes + parsedHours * 60;
+    const enforcedTackle = enforceMandatoryTackle(yacht, false);
+
+    const toInsert = [];
+    const skipped = [];
+
+    candidateDates.forEach((dateStr, i) => {
+        const dayReservations = existingReservations.filter(r => r.date === dateStr);
+        const collision = findCollision(newStartMinutes, newEndMinutes, dayReservations);
+
+        if (collision) {
+            const collisionEnd = minutesToTime(timeToMinutes(collision.start_time) + collision.hours * 60);
+            skipped.push({
+                date: dateStr,
+                reason: `koliduje z "${collision.customer_name}" (${collision.start_time}-${collisionEnd})`
+            });
+        } else {
+            toInsert.push({
+                id: 'RES-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substr(2, 6),
+                yacht,
+                date: dateStr,
+                start_time: startTime,
+                hours: parsedHours,
+                tackle: enforcedTackle,
+                skipper: false,
+                total_price: 0,
+                club_revenue: 0,
+                skipper_revenue: 0,
+                customer_name: `Kurs: ${courseName.trim()}`,
+                customer_email: 'kurs@wewnetrzna.local',
+                customer_phone: null,
+                status: 'pending',
+                is_course_session: true
+            });
+        }
+    });
+
+    let inserted = [];
+    if (toInsert.length > 0) {
+        const { data, error } = await supabase
+            .from('reservations')
+            .insert(toInsert)
+            .select();
+
+        if (error) {
+            console.error('Supabase insert error:', error);
+            return res.status(500).json({ error: 'Błąd zapisu sesji kursu' });
+        }
+        inserted = data;
+    }
+
+    res.status(201).json({
+        message: `Utworzono ${inserted.length} sesji kursu${skipped.length > 0 ? `, pominięto ${skipped.length} (kolizje)` : ''}`,
+        createdCount: inserted.length,
+        skipped
+    });
+});
+
 // Rezerwacja "własna klubu" (np. przegląd techniczny, rejs integracyjny) - dostępna
 // WYŁĄCZNIE z panelu klubowego (verifyAdminToken). Bez ceny/kosztu, nie wlicza się
 // do puli obsłużonych czarterów opiekunów w raporcie miesięcznym, i nie wysyła
@@ -741,7 +867,7 @@ app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
 
     const reservation = mapReservation(data);
 
-    if (assignedAdmin) {
+    if (assignedAdmin && !reservation.isClubReservation && !reservation.isCourseSession) {
         sendApprovalEmail(reservation, assignedAdmin);
     }
 
@@ -771,7 +897,7 @@ app.delete('/api/reservations/:id', verifyAdminToken, async (req, res) => {
 
     const reservation = mapReservation(data);
 
-    if (!reservation.isClubReservation) {
+    if (!reservation.isClubReservation && !reservation.isCourseSession) {
         sendEmail(
             reservation.customerEmail,
             `Anulowanie rezerwacji - ${reservation.id}`,
@@ -945,6 +1071,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
         .select('yacht, club_revenue, admin:admins(id, name)')
         .eq('status', 'approved')
         .eq('is_club_reservation', false)
+        .eq('is_course_session', false)
         .gte('date', startDate)
         .lte('date', endDate);
 
