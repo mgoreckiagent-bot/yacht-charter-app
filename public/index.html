@@ -237,6 +237,7 @@
                     <button class="btn-primary" onclick="showManageAdminsModal()">👥 Zarządzaj opiekunami</button>
                     <button class="btn-success" onclick="showReportModal()">📊 Generuj Raport</button>
                     <button class="btn-secondary" onclick="showClubReservationModal()">🏛️ Rezerwacja klubowa</button>
+                    <button class="btn-secondary" onclick="showCourseModal()">🎓 Zaplanuj Kurs</button>
                 </div>
                 <div class="section">
                     <h2>📅 Kalendarz Rezerwacji</h2>
@@ -423,6 +424,61 @@
             <div class="button-group">
                 <button class="btn-success" onclick="submitClubReservation()">Utwórz Rezerwację</button>
                 <button class="btn-secondary" onclick="closeClubReservationModal()">Anuluj</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="courseModal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2>🎓 Zaplanuj Kurs</h2>
+                <button class="close-modal" onclick="closeCourseModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Nazwa kursu:</label>
+                <input type="text" id="courseName" placeholder="np. Kurs żeglarza jachtowego - grupa A">
+            </div>
+            <div class="form-group">
+                <label>Jacht:</label>
+                <select id="courseYacht">
+                    <option value="enn">Enn</option>
+                    <option value="first">First</option>
+                    <option value="omega">Omega</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Zakres dat:</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="date" id="courseStartDate" style="flex:1;">
+                    <input type="date" id="courseEndDate" style="flex:1;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Dni tygodnia:</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay1" value="1"><label for="courseDay1" style="margin:0;">Pon</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay2" value="2"><label for="courseDay2" style="margin:0;">Wto</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay3" value="3"><label for="courseDay3" style="margin:0;">Śro</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay4" value="4"><label for="courseDay4" style="margin:0;">Czw</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay5" value="5"><label for="courseDay5" style="margin:0;">Pią</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay6" value="6"><label for="courseDay6" style="margin:0;">Sob</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="courseDay0" value="0"><label for="courseDay0" style="margin:0;">Nie</label></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Godzina każdej sesji:</label>
+                <input type="time" id="courseStartTime">
+            </div>
+            <div class="form-group">
+                <label>Długość sesji (godziny):</label>
+                <input type="number" id="courseHours" min="1" max="24" value="2">
+            </div>
+            <div class="deposit-info">
+                Zostanie utworzona osobna, bezpłatna sesja na każdy pasujący dzień w zakresie. Instruktora przydzielisz później, osobno do każdej sesji (tak jak przy zwykłych czarterach). Terminy kolidujące z istniejącymi rezerwacjami zostaną pominięte, o czym dostaniesz podsumowanie.
+            </div>
+            <div class="button-group">
+                <button class="btn-success" onclick="submitCourseBatch()">Utwórz Sesje Kursu</button>
+                <button class="btn-secondary" onclick="closeCourseModal()">Anuluj</button>
             </div>
         </div>
     </div>
@@ -967,6 +1023,15 @@
                 return `<div>${firstLine}</div><div style="font-size:10px;font-weight:bold;">🏛️ KLUB</div>`;
             }
 
+            if (res.isCourseSession) {
+                const firstLine = showTime ? res.startTime : res.yacht;
+                const instructorName = res.admin ? res.admin.name : '';
+                let html = `<div>${firstLine}</div>`;
+                if (instructorName) html += `<div style="font-size:10px;opacity:0.9;">${instructorName}</div>`;
+                html += `<div style="font-size:10px;font-weight:bold;">🎓 KURS</div>`;
+                return html;
+            }
+
             let symbols = '';
             if (res.tackle && res.skipper) symbols = 'TA';
             else if (res.tackle) symbols = 'T';
@@ -1431,6 +1496,60 @@
                 } else {
                     showAlert('❌ ' + err.message, 'error');
                 }
+            });
+        }
+
+        function showCourseModal() {
+            document.getElementById('courseName').value = '';
+            document.getElementById('courseYacht').value = 'enn';
+            document.getElementById('courseStartDate').value = '';
+            document.getElementById('courseEndDate').value = '';
+            [0, 1, 2, 3, 4, 5, 6].forEach(d => { document.getElementById('courseDay' + d).checked = false; });
+            document.getElementById('courseStartTime').value = '';
+            document.getElementById('courseHours').value = '2';
+            document.getElementById('courseModal').classList.add('show');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').classList.remove('show');
+        }
+
+        function submitCourseBatch() {
+            const courseName = document.getElementById('courseName').value.trim();
+            const yacht = document.getElementById('courseYacht').value;
+            const startDate = document.getElementById('courseStartDate').value;
+            const endDate = document.getElementById('courseEndDate').value;
+            const daysOfWeek = [0, 1, 2, 3, 4, 5, 6].filter(d => document.getElementById('courseDay' + d).checked);
+            const startTime = document.getElementById('courseStartTime').value;
+            const hours = parseInt(document.getElementById('courseHours').value);
+
+            if (!courseName || !startDate || !endDate || daysOfWeek.length === 0 || !startTime || !hours) {
+                showAlert('Wypełnij wszystkie pola, w tym przynajmniej jeden dzień tygodnia!', 'error');
+                return;
+            }
+            if (startDate > endDate) {
+                showAlert('Data końcowa musi być późniejsza niż data początkowa!', 'error');
+                return;
+            }
+
+            showAlert('Generowanie sesji kursu...', 'info');
+
+            authFetch('/api/reservations/course-batch', {
+                method: 'POST',
+                body: JSON.stringify({ yacht, startDate, endDate, daysOfWeek, startTime, hours, courseName })
+            })
+            .then(data => {
+                closeCourseModal();
+                loadAdminData();
+                if (data.skipped && data.skipped.length > 0) {
+                    const details = data.skipped.map(s => `${s.date}: ${s.reason}`).join('\n');
+                    showAlert(`✅ ${data.message}\n\nPominięte terminy:\n${details}`, 'info');
+                } else {
+                    showAlert(`✅ ${data.message}`, 'success');
+                }
+            })
+            .catch(err => {
+                showAlert('❌ ' + err.message, 'error');
             });
         }
 
