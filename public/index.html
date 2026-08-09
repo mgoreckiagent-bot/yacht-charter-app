@@ -1200,6 +1200,12 @@
             const res = reservations.find(r => r.id === resId);
             if (!res) return;
 
+            const isFreeCategory = res.isClubReservation || res.isCourseSession;
+            const nameLabel = res.isCourseSession ? 'Nazwa kursu (opis):' : res.isClubReservation ? 'Cel rezerwacji (opis):' : 'Imię i nazwisko:';
+            const contactNote = isFreeCategory
+                ? `<div class="deposit-info">Pola e-mail/telefon nie są tu istotne (brak prawdziwego klienta) — możesz je zostawić bez zmian.</div>`
+                : '';
+
             const container = document.getElementById('adminReservationContent');
             container.innerHTML = `
                 <div class="section">
@@ -1225,7 +1231,7 @@
                         <input type="number" id="editResHours" min="1" max="24" value="${res.hours}">
                     </div>
                     <div class="form-group">
-                        <label>Imię i nazwisko:</label>
+                        <label>${nameLabel}</label>
                         <input type="text" id="editResName" value="${res.customerName}">
                     </div>
                     <div class="form-group">
@@ -1236,6 +1242,7 @@
                         <label>Telefon:</label>
                         <input type="tel" id="editResPhone" value="${res.customerPhone || ''}">
                     </div>
+                    ${contactNote}
                     <div class="deposit-info">
                         Zmiana jachtu/daty/godziny zostanie ponownie sprawdzona pod kątem kolizji z innymi rezerwacjami.
                     </div>
