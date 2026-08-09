@@ -284,9 +284,10 @@ async function sendTelegramMessage(text) {
 function sendApprovalEmail(reservation, admin) {
     sendEmail(
         reservation.customerEmail,
-        `Akceptacja rezerwacji - ${reservation.id}`,
+        `Czarter potwierdzony - opiekun przydzielony (${reservation.id})`,
         `
-            <h2>Rezerwacja Zatwierdzona! ✅</h2>
+            <h2>Czarter potwierdzony! ✅</h2>
+            <p>To jest już <strong>ostateczne potwierdzenie</strong> — Twój czarter jest zorganizowany, opiekun został przydzielony.</p>
             <h3>Szczegóły rezerwacji:</h3>
             <ul>
                 <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
@@ -416,11 +417,12 @@ app.post('/api/reservations', async (req, res) => {
 
     sendEmail(
         reservation.customerEmail,
-        `Rezerwacja czarteru - ${reservation.id}`,
+        `Zgłoszenie rezerwacji przyjęte - ${reservation.id}`,
         `
-            <h2>Potwierdzenie Rezerwacji</h2>
-            <p>Dziękujemy za rezerwację!</p>
-            <h3>Szczegóły rezerwacji:</h3>
+            <h2>Zgłoszenie rezerwacji przyjęte</h2>
+            <p>Dziękujemy za zgłoszenie! To jeszcze <strong>nie jest ostateczne potwierdzenie czarteru</strong> — Twoje zgłoszenie czeka teraz na przydzielenie opiekuna przez klub.</p>
+            <p>Gdy tylko opiekun zostanie przypisany, dostaniesz <strong>kolejnego e-maila</strong> z ostatecznym potwierdzeniem oraz danymi kontaktowymi opiekuna.</p>
+            <h3>Szczegóły zgłoszenia:</h3>
             <ul>
                 <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
                 <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
@@ -429,7 +431,7 @@ app.post('/api/reservations', async (req, res) => {
                 <li><strong>Razem do zapłaty:</strong> ${reservation.totalPrice} zł</li>
                 <li><strong>Kaucja zwrotna:</strong> 500 zł</li>
             </ul>
-            <p>Status rezerwacji: <strong>Oczekuje na akceptację klubu</strong></p>
+            <p>📌 Status zgłoszenia: <strong>Oczekuje na przydzielenie opiekuna</strong></p>
             <p>Pozdrawiamy,<br>Klub Żeglarski</p>
         `
     );
