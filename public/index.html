@@ -123,8 +123,9 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>⛵ Zarządzanie Czarterami Jachtów</h1>
-            <p>Klub Żeglarski - System Rezerwacji</p>
+            <img src="/images/logo.png" alt="YKP Lublin - logo" style="width: 76px; height: 76px; margin-bottom: 12px;">
+            <h1>Zarządzanie Czarterami Jachtów</h1>
+            <p>YKP Lublin - System Rezerwacji</p>
         </div>
 
         <div id="alertBox" class="alert"></div>
@@ -210,7 +211,8 @@
                 <div class="deposit-info">
                     <strong>⚠️ Ważna informacja:</strong><br>
                     Kaucja zwrotna: <strong>500 zł</strong><br>
-                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu.
+                    Kaucja zostanie zwrócona po zdaniu sprawnego i czystego jachtu.<br>
+                    Prosimy o przygotowanie odliczonej kwoty kaucji w gotówce. Brak możliwości wniesienia opłaty kartą.
                 </div>
                 <div class="button-group">
                     <button class="btn-primary" onclick="submitReservation()">Rezerwuj Jacht</button>
@@ -724,6 +726,7 @@
                     <div class="summary-row"><span class="summary-label"><strong>Do zapłaty:</strong></span><span class="summary-value"><strong>${currentReservation.totalPrice} zł</strong></span></div>
                     <div class="summary-row"><span class="summary-label"><strong>Kaucja (zwrotna):</strong></span><span class="summary-value"><strong>${DEPOSIT} zł</strong></span></div>
                 </div>
+                <p style="font-size:13px;color:#856404;background:#fff3cd;padding:10px;border-radius:6px;">⚠️ Prosimy o przygotowanie odliczonej kwoty kaucji w gotówce. Brak możliwości wniesienia opłaty kartą.</p>
                 <div class="button-group">
                     <button class="btn-success" onclick="showSendModal()">Wyślij do Klubu</button>
                     <button class="btn-info" onclick="showEditModal()">Edytuj Rezerwację</button>
