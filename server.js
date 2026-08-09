@@ -832,10 +832,20 @@ app.patch('/api/reservations/:id', verifyAdminToken, async (req, res) => {
         const enforcedTackle = enforceMandatoryTackle(effectiveYacht, currentRes.tackle);
         updates.tackle = enforcedTackle;
 
-        updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
-        const revenueSplit = calculateRevenueSplit(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
-        updates.club_revenue = revenueSplit.clubRevenue;
-        updates.skipper_revenue = revenueSplit.skipperRevenue;
+        // Rezerwacje klubowe i sesje kursu są zawsze bezpłatne - zmiana godzin/jachtu
+        // NIE MOŻE ich "uaktywnić" jako płatnych. Cena liczona normalnie tylko dla
+        // zwykłych, płatnych czarterów.
+        const isFreeCategory = currentRes.is_club_reservation || currentRes.is_course_session;
+        if (isFreeCategory) {
+            updates.total_price = 0;
+            updates.club_revenue = 0;
+            updates.skipper_revenue = 0;
+        } else {
+            updates.total_price = calculateTotalPrice(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
+            const revenueSplit = calculateRevenueSplit(effectiveYacht, effectiveHours, enforcedTackle, currentRes.skipper);
+            updates.club_revenue = revenueSplit.clubRevenue;
+            updates.skipper_revenue = revenueSplit.skipperRevenue;
+        }
     }
 
     if (adminId) {
