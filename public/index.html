@@ -72,6 +72,7 @@
         .reservation.approved { background: #4CAF50; }
         .reservation.pending { background: #ff9800; }
         .reservation.realized { background: #e0e0e0; color: #616161; }
+        .reservation.unserved { background: #e57373; color: white; }
         .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
         .calendar-nav button { padding: 10px 20px; }
         .calendar-title { font-size: 20px; font-weight: bold; color: #333; flex: 1; text-align: center; }
@@ -96,11 +97,13 @@
         .reservation-item.green { border-left-color: #4CAF50; }
         .reservation-item.orange { border-left-color: #ff9800; }
         .reservation-item.gray { border-left-color: #9e9e9e; background: #f0f0f0; }
+        .reservation-item.dark-red { border-left-color: #c62828; background: #ffebee; }
         .reservation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .reservation-status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
         .reservation-status.pending { background: #ffe0b2; color: #e65100; }
         .reservation-status.approved { background: #c8e6c9; color: #2e7d32; }
         .reservation-status.realized { background: #e0e0e0; color: #616161; }
+        .reservation-status.unserved { background: #ffcdd2; color: #c62828; }
         .reservation-details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px; }
         .detail-item { display: flex; flex-direction: column; }
         .detail-label { color: #666; font-weight: 500; margin-bottom: 3px; }
@@ -537,10 +540,15 @@
         }
 
         // Wspólna reguła sortowania rezerwacji (lista, "Wszystkie rezerwacje"):
-        // 1. Oczekujące (pending) najpierw, potem zatwierdzone, na samym końcu zrealizowane (przeszłe)
+        // 1. Oczekujące (pending) najpierw, potem zatwierdzone, na końcu zrealizowane (przeszłe)
+        //    i nieobsłużone (unserved) - to stany "zamknięte", nie wymagają już uwagi admina
         // 2. W obrębie tej samej grupy: data rosnąco, potem godzina rozpoczęcia, potem jacht alfabetycznie
         function compareReservations(a, b) {
-            const statusRank = r => isPastReservation(r) ? 2 : (r.status === 'pending' ? 0 : 1);
+            const statusRank = r => {
+                if (r.status === 'unserved') return 3;
+                if (isPastReservation(r)) return 2;
+                return r.status === 'pending' ? 0 : 1;
+            };
             const statusDiff = statusRank(a) - statusRank(b);
             if (statusDiff !== 0) return statusDiff;
 
@@ -1132,12 +1140,12 @@
                 const isToday = date.toDateString() === new Date().toDateString();
                 const dateStr = toLocalDateStr(date);
                 const dayReservations = reservations
-                    .filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved'))
+                    .filter(r => r.date === dateStr && (r.status === 'pending' || r.status === 'approved' || r.status === 'unserved'))
                     .sort(compareByTimeAndYacht);
                 let cellClass = isToday ? 'today' : '';
                 html += `<td class="${cellClass}"><div style="font-weight: bold; margin-bottom: 5px;">${day}</div>`;
                 dayReservations.forEach(res => {
-                    const statusClass = isPastReservation(res) ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
+                    const statusClass = res.status === 'unserved' ? 'unserved' : (isPastReservation(res) ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending'));
                     html += `<div class="reservation ${statusClass}" title="${res.yacht}" onclick="event.stopPropagation(); showReservationDetails('${res.id}')">${reservationLabelHTML(res, false)}</div>`;
                 });
                 html += '</td>';
@@ -1172,9 +1180,10 @@
             let html = '';
             sorted.forEach(res => {
                 const isPast = isPastReservation(res);
-                const statusClass = isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
-                const statusText = isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
-                const badgeClass = isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
+                const isUnserved = res.status === 'unserved';
+                const statusClass = isUnserved ? 'dark-red' : isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
+                const statusText = isUnserved ? 'Nieobsłużona' : isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
+                const badgeClass = isUnserved ? 'unserved' : isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
                 const endTime = new Date(`2000-01-01 ${res.startTime}`);
                 endTime.setHours(endTime.getHours() + res.hours);
                 const endTimeStr = endTime.toTimeString().slice(0, 5);
@@ -1229,6 +1238,14 @@
                     ${res.admin ? `<div class="summary-row"><span class="summary-label">Przydzielony opiekun:</span><span class="summary-value">${res.admin.name} (${res.admin.phone})</span></div>` : ''}
                 </div>
             `;
+
+            if (res.status === 'unserved') {
+                html += `
+                    <div class="deposit-info" style="background:#ffebee; border-left-color:#c62828; color:#c62828;">
+                        ⚠️ Ta rezerwacja została automatycznie oznaczona jako <strong>nieobsłużona</strong> — nie udało się przydzielić opiekuna na 24h przed startem. Klient został poinformowany mailem z przeprosinami.
+                    </div>
+                `;
+            }
 
             if (res.status === 'pending') {
                 html += `
@@ -1431,9 +1448,10 @@
             let html = '<div class="reservation-list">';
             sorted.forEach(res => {
                 const isPast = isPastReservation(res);
-                const statusClass = isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
-                const statusText = isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
-                const badgeClass = isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
+                const isUnserved = res.status === 'unserved';
+                const statusClass = isUnserved ? 'dark-red' : isPast ? 'gray' : (res.status === 'approved' ? 'green' : res.status === 'pending' ? 'orange' : 'red');
+                const statusText = isUnserved ? 'Nieobsłużona' : isPast ? 'Zrealizowana' : (res.status === 'approved' ? 'Zatwierdzona' : res.status === 'pending' ? 'Oczekująca' : 'Anulowana');
+                const badgeClass = isUnserved ? 'unserved' : isPast ? 'realized' : (res.status === 'approved' ? 'approved' : 'pending');
                 const endTime = new Date(`2000-01-01 ${res.startTime}`);
                 endTime.setHours(endTime.getHours() + res.hours);
                 const endTimeStr = endTime.toTimeString().slice(0, 5);
