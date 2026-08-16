@@ -739,6 +739,16 @@
             updatePrice();
         }
 
+        // Liczy ile godzin zostało do wybranego terminu (data + godzina startu) - używane
+        // do natychmiastowego ostrzeżenia klienta, zanim jeszcze przejdzie przez cały formularz.
+        // Ostateczna, autorytatywna walidacja i tak odbywa się po stronie serwera.
+        function hoursUntilReservationClient(dateStr, startTime) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const [h, mi] = startTime.split(':').map(Number);
+            const target = new Date(y, m - 1, d, h, mi, 0);
+            return (target - new Date()) / (1000 * 60 * 60);
+        }
+
         function submitReservation() {
             const yacht = document.getElementById('selectedYacht').value;
             const date = document.getElementById('charterDate').value;
@@ -749,6 +759,12 @@
 
             if (!yacht || !date || !startTime || !hours) {
                 showAlert('Wypełnij wszystkie pola!', 'error');
+                return;
+            }
+
+            const hoursUntil = hoursUntilReservationClient(date, startTime);
+            if (hoursUntil < MIN_HOURS_NOTICE) {
+                showAlert(`❌ Ten termin jest za wcześnie — rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem (klub potrzebuje czasu na przygotowanie). Wybierz późniejszą godzinę lub inny dzień.`, 'error');
                 return;
             }
 
@@ -941,10 +957,19 @@
         function closeEditModal() { document.getElementById('editModal').classList.remove('show'); }
 
         function saveEditedReservation() {
+            const newDate = document.getElementById('editDate').value;
+            const newStartTime = document.getElementById('editStartTime').value;
+
+            const hoursUntil = hoursUntilReservationClient(newDate, newStartTime);
+            if (hoursUntil < MIN_HOURS_NOTICE) {
+                showAlert(`❌ Ten termin jest za wcześnie — rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem. Wybierz późniejszą godzinę lub inny dzień.`, 'error');
+                return;
+            }
+
             currentReservation.yacht = document.getElementById('editYacht').value;
             currentReservation.yachtName = YACHTS[currentReservation.yacht].name;
-            currentReservation.date = document.getElementById('editDate').value;
-            currentReservation.startTime = document.getElementById('editStartTime').value;
+            currentReservation.date = newDate;
+            currentReservation.startTime = newStartTime;
             currentReservation.hours = parseInt(document.getElementById('editHours').value);
             // Zabezpieczenie: Omega zawsze z taklowaniem, niezależnie od stanu checkboxa
             currentReservation.tackle = currentReservation.yacht === 'omega' ? true : document.getElementById('editTackle').checked;
