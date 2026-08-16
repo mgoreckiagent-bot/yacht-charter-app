@@ -294,6 +294,16 @@
         </div>
     </div>
 
+    <div id="messageModal" class="modal">
+        <div class="modal-content" style="max-width: 420px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; border-bottom: none;">
+                <h2 id="messageModalTitle" style="margin: 0;">⚠️ Uwaga</h2>
+            </div>
+            <p id="messageModalText" style="font-size: 15px; line-height: 1.5; color: #333; margin: 10px 0 20px;"></p>
+            <button class="btn-primary" style="width: 100%;" onclick="closeMessageModal()">Rozumiem</button>
+        </div>
+    </div>
+
     <div id="summaryModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -556,6 +566,19 @@
             setTimeout(() => alertBox.classList.remove('show'), 6000);
         }
 
+        // Wyskakujące okno na komunikaty wymagające świadomej uwagi użytkownika
+        // (w odróżnieniu od showAlert, które jest dyskretnym powiadomieniem na górze
+        // strony i łatwo je przeoczyć, zwłaszcza na telefonie).
+        function showMessageModal(message, title = '⚠️ Uwaga') {
+            document.getElementById('messageModalTitle').textContent = title;
+            document.getElementById('messageModalText').textContent = message;
+            document.getElementById('messageModal').classList.add('show');
+        }
+
+        function closeMessageModal() {
+            document.getElementById('messageModal').classList.remove('show');
+        }
+
         function switchMode(mode) {
             document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -764,7 +787,7 @@
 
             const hoursUntil = hoursUntilReservationClient(date, startTime);
             if (hoursUntil < MIN_HOURS_NOTICE) {
-                showAlert(`❌ Ten termin jest za wcześnie — rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem (klub potrzebuje czasu na przygotowanie). Wybierz późniejszą godzinę lub inny dzień.`, 'error');
+                showMessageModal(`Rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem — klub potrzebuje czasu na przygotowanie. Wybierz późniejszą godzinę lub inny dzień.`, '⏰ Za wcześnie na ten termin');
                 return;
             }
 
@@ -962,7 +985,7 @@
 
             const hoursUntil = hoursUntilReservationClient(newDate, newStartTime);
             if (hoursUntil < MIN_HOURS_NOTICE) {
-                showAlert(`❌ Ten termin jest za wcześnie — rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem. Wybierz późniejszą godzinę lub inny dzień.`, 'error');
+                showMessageModal(`Rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem. Wybierz późniejszą godzinę lub inny dzień.`, '⏰ Za wcześnie na ten termin');
                 return;
             }
 
