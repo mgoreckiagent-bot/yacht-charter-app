@@ -601,14 +601,24 @@
         // Wyskakujące okno na komunikaty wymagające świadomej uwagi użytkownika
         // (w odróżnieniu od showAlert, które jest dyskretnym powiadomieniem na górze
         // strony i łatwo je przeoczyć, zwłaszcza na telefonie).
-        function showMessageModal(message, title = '⚠️ Uwaga') {
+        // Opcjonalny onClose wykonuje się DOPIERO po kliknięciu "Rozumiem" - np. do
+        // przeładowania strony po udanej rezerwacji, bez pomijania samego komunikatu.
+        let messageModalOnClose = null;
+
+        function showMessageModal(message, title = '⚠️ Uwaga', onClose = null) {
             document.getElementById('messageModalTitle').textContent = title;
             document.getElementById('messageModalText').textContent = message;
+            messageModalOnClose = onClose;
             document.getElementById('messageModal').classList.add('show');
         }
 
         function closeMessageModal() {
             document.getElementById('messageModal').classList.remove('show');
+            if (messageModalOnClose) {
+                const callback = messageModalOnClose;
+                messageModalOnClose = null;
+                callback();
+            }
         }
 
         function switchMode(mode) {
@@ -956,7 +966,7 @@
                 document.getElementById('customerName').value = '';
                 document.getElementById('customerEmail').value = '';
                 document.getElementById('customerPhone').value = '';
-                showMessageModal(`Twoje zgłoszenie zostało przyjęte (ID: ${data.reservation.id}). Otrzymasz potwierdzenie e-mail po akceptacji przez klub.`, '✅ Zgłoszenie przyjęte');
+                showMessageModal(`Twoje zgłoszenie zostało przyjęte (ID: ${data.reservation.id}). Otrzymasz potwierdzenie e-mail po akceptacji przez klub.`, '✅ Zgłoszenie przyjęte', () => window.location.reload());
                 resetForm();
                 currentReservation = null;
             })
