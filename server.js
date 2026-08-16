@@ -483,6 +483,7 @@ app.post('/api/reservations', async (req, res) => {
             <h2>Zgłoszenie rezerwacji przyjęte</h2>
             <p>Dziękujemy za zgłoszenie! To jeszcze <strong>nie jest ostateczne potwierdzenie czarteru</strong> — Twoje zgłoszenie czeka teraz na przydzielenie opiekuna przez klub.</p>
             <p>Gdy tylko opiekun zostanie przypisany, dostaniesz <strong>kolejnego e-maila</strong> z ostatecznym potwierdzeniem oraz danymi kontaktowymi opiekuna.</p>
+            <p style="background:#f8d7da;color:#721c24;padding:10px;border-radius:6px;">⚠️ Jeśli klub nie będzie w stanie zapewnić opiekuna na ten termin, rezerwacja zostanie <strong>automatycznie anulowana najpóźniej 24h przed startem</strong> — o czym również dostaniesz osobnego e-maila.</p>
             <h3>Szczegóły zgłoszenia:</h3>
             <ul>
                 <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
@@ -1117,23 +1118,41 @@ const MONTH_NAMES_PL = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerw
 const YACHT_LABELS = { enn: 'Enn', first: 'First', omega: 'Omega' };
 
 app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
-    const { month } = req.query; // oczekiwany format: "2026-07"
+    const { month, year } = req.query;
+    // Wybór trybu: jeśli podano "year" (bez "month") -> raport roczny, w przeciwnym razie miesięczny.
+    // Nazwa endpointu ("monthly") została z historii projektu - obsługuje teraz oba okresy.
+    const isYearly = !month && !!year;
 
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-        return res.status(400).json({ error: 'Nieprawidłowy format miesiąca (oczekiwano YYYY-MM)' });
+    let startDate, endDate, periodLabel, filenameSuffix;
+
+    if (isYearly) {
+        if (!/^\d{4}$/.test(year)) {
+            return res.status(400).json({ error: 'Nieprawidłowy format roku (oczekiwano YYYY)' });
+        }
+        const yearNum = parseInt(year);
+        startDate = `${year}-01-01`;
+        endDate = `${year}-12-31`;
+        periodLabel = `Rok ${yearNum}`;
+        filenameSuffix = `${year}`;
+    } else {
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return res.status(400).json({ error: 'Nieprawidłowy format miesiąca (oczekiwano YYYY-MM) lub roku (oczekiwano YYYY)' });
+        }
+
+        const [yearStr, monthStr] = month.split('-');
+        const yearNum = parseInt(yearStr);
+        const monthNum = parseInt(monthStr);
+
+        if (monthNum < 1 || monthNum > 12) {
+            return res.status(400).json({ error: 'Nieprawidłowy numer miesiąca' });
+        }
+
+        startDate = `${month}-01`;
+        const lastDay = new Date(yearNum, monthNum, 0).getDate();
+        endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+        periodLabel = `${MONTH_NAMES_PL[monthNum - 1]} ${yearNum}`;
+        filenameSuffix = `${month}`;
     }
-
-    const [yearStr, monthStr] = month.split('-');
-    const year = parseInt(yearStr);
-    const monthNum = parseInt(monthStr);
-
-    if (monthNum < 1 || monthNum > 12) {
-        return res.status(400).json({ error: 'Nieprawidłowy numer miesiąca' });
-    }
-
-    const startDate = `${month}-01`;
-    const lastDay = new Date(year, monthNum, 0).getDate();
-    const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
 
     const { data: reservations, error } = await supabase
         .from('reservations')
@@ -1188,17 +1207,15 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
         }
     });
 
-    const monthLabel = `${MONTH_NAMES_PL[monthNum - 1]} ${year}`;
-
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="raport-${month}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="raport-${filenameSuffix}.pdf"`);
     doc.pipe(res);
 
     // Nagłówek
     doc.font(FONT_BOLD).fontSize(20).text('Yacht Klub Lublin', { align: 'center' });
-    doc.font(FONT_REGULAR).fontSize(15).text(`Raport miesięczny — ${monthLabel}`, { align: 'center' });
+    doc.font(FONT_REGULAR).fontSize(15).text(`Raport ${isYearly ? 'roczny' : 'miesięczny'} — ${periodLabel}`, { align: 'center' });
     doc.moveDown(2);
 
     // Sekcja: przychód klubu wg jachtu
@@ -1223,7 +1240,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
 
     const adminEntries = Object.entries(byAdminCount).sort((a, b) => b[1] - a[1]);
     if (adminEntries.length === 0) {
-        doc.text('Brak obsłużonych czarterów w tym miesiącu.');
+        doc.text(`Brak obsłużonych czarterów w tym ${isYearly ? 'roku' : 'miesiącu'}.`);
     } else {
         adminEntries.forEach(([name, count]) => {
             const label = count === 1 ? 'czarter' : 'czartery(-ów)';
@@ -1244,7 +1261,7 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
     doc.font(FONT_REGULAR).fontSize(12);
 
     if (unservedReservations.length === 0) {
-        doc.text('Brak nieobsłużonych rezerwacji w tym miesiącu.');
+        doc.text(`Brak nieobsłużonych rezerwacji w tym ${isYearly ? 'roku' : 'miesiącu'}.`);
     } else {
         unservedReservations.forEach(r => {
             const dateLabel = new Date(r.date).toLocaleDateString('pl-PL');
