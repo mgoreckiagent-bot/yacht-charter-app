@@ -335,6 +335,13 @@
                 <label>Telefon komórkowy:</label>
                 <input type="tel" id="customerPhone" placeholder="+48 123 456 789" value="+48 ">
             </div>
+            <div class="deposit-info" style="background:#fff3cd; border-left-color:#ffc107; color:#856404;">
+                <strong>⚠️ To dopiero pierwszy krok.</strong> Ta rezerwacja staje się w pełni obowiązująca <strong>dopiero po przydzieleniu opiekuna</strong> przez klub — potwierdzimy to osobnym e-mailem. Jeśli klub nie będzie w stanie zapewnić opiekuna, rezerwacja zostanie <strong>automatycznie anulowana najpóźniej 24h przed startem</strong>, o czym również dostaniesz e-mail.
+            </div>
+            <div class="checkbox-item" style="margin-top:10px;">
+                <input type="checkbox" id="confirmWaitCheckbox">
+                <label for="confirmWaitCheckbox" style="margin:0;">Tak. Rozumiem, że muszę poczekać na potwierdzenie rezerwacji przez klub.</label>
+            </div>
             <div class="button-group">
                 <button class="btn-success" onclick="sendReservationToClub()">Wyślij do Klubu</button>
                 <button class="btn-secondary" onclick="closeSendModal()">Anuluj</button>
@@ -385,15 +392,32 @@
     <div id="reportModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
             <div class="modal-header">
-                <h2>📊 Raport Miesięczny</h2>
+                <h2>📊 Raport</h2>
                 <button class="close-modal" onclick="closeReportModal()">&times;</button>
             </div>
             <div class="form-group">
+                <label>Okres raportu:</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="radio" name="reportPeriodType" id="reportPeriodMonth" value="month" checked onchange="onReportPeriodTypeChange()">
+                        <label for="reportPeriodMonth" style="margin: 0;">Miesiąc</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="radio" name="reportPeriodType" id="reportPeriodYear" value="year" onchange="onReportPeriodTypeChange()">
+                        <label for="reportPeriodYear" style="margin: 0;">Rok</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" id="reportMonthGroup">
                 <label>Wybierz miesiąc:</label>
                 <input type="month" id="reportMonth">
             </div>
+            <div class="form-group" id="reportYearGroup" style="display:none;">
+                <label>Wybierz rok:</label>
+                <input type="number" id="reportYear" min="2020" max="2100" step="1">
+            </div>
             <div class="deposit-info">
-                Raport zawiera przychód klubu (wynajem jachtów) oraz liczbę czarterów obsłużonych przez każdego opiekuna, wyłącznie z rezerwacji <strong>zatwierdzonych</strong>. Kaucje nie są wliczane. Opłaty za taklowanie i asystę skippera trafiają bezpośrednio do opiekuna i nie są ujęte w raporcie klubu.
+                Raport zawiera przychód klubu (wynajem jachtów), liczbę czarterów obsłużonych przez każdego opiekuna oraz rezerwacje nieobsłużone, wyłącznie z rezerwacji <strong>zatwierdzonych</strong>/odpowiednio oznaczonych. Kaucje nie są wliczane. Opłaty za taklowanie i asystę skippera trafiają bezpośrednio do opiekuna i nie są ujęte w raporcie klubu.
             </div>
             <div class="button-group">
                 <button class="btn-success" onclick="generateReport()">Pobierz Raport PDF</button>
@@ -862,16 +886,26 @@
         }
 
         function closeSummaryModal() { document.getElementById('summaryModal').classList.remove('show'); }
-        function showSendModal() { document.getElementById('sendModal').classList.add('show'); closeSummaryModal(); }
+        function showSendModal() {
+            document.getElementById('confirmWaitCheckbox').checked = false; // wymuszamy świadome zaznaczenie za każdym razem
+            document.getElementById('sendModal').classList.add('show');
+            closeSummaryModal();
+        }
         function closeSendModal() { document.getElementById('sendModal').classList.remove('show'); }
 
         function sendReservationToClub() {
             const name = document.getElementById('customerName').value.trim();
             const email = document.getElementById('customerEmail').value.trim();
             const phone = document.getElementById('customerPhone').value.trim();
+            const confirmedWait = document.getElementById('confirmWaitCheckbox').checked;
 
             if (!name || !email || !phone) {
                 showAlert('Wypełnij wszystkie dane kontaktowe!', 'error');
+                return;
+            }
+
+            if (!confirmedWait) {
+                showAlert('Zaznacz checkbox potwierdzający, że rozumiesz zasady oczekiwania na potwierdzenie rezerwacji!', 'error');
                 return;
             }
 
@@ -1491,10 +1525,13 @@
         }
 
         function showReportModal() {
-            // Domyślnie ustaw bieżący miesiąc
+            // Domyślnie ustaw bieżący miesiąc i bieżący rok
             const now = new Date();
             const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             document.getElementById('reportMonth').value = defaultMonth;
+            document.getElementById('reportYear').value = now.getFullYear();
+            document.getElementById('reportPeriodMonth').checked = true;
+            onReportPeriodTypeChange();
             document.getElementById('reportModal').classList.add('show');
         }
 
@@ -1502,18 +1539,40 @@
             document.getElementById('reportModal').classList.remove('show');
         }
 
+        function onReportPeriodTypeChange() {
+            const isYear = document.getElementById('reportPeriodYear').checked;
+            document.getElementById('reportMonthGroup').style.display = isYear ? 'none' : 'block';
+            document.getElementById('reportYearGroup').style.display = isYear ? 'block' : 'none';
+        }
+
         function generateReport() {
-            const month = document.getElementById('reportMonth').value; // format: YYYY-MM
-            if (!month) {
-                showAlert('Wybierz miesiąc!', 'error');
-                return;
+            const isYearly = document.getElementById('reportPeriodYear').checked;
+
+            let queryParam, filenameLabel;
+
+            if (isYearly) {
+                const year = document.getElementById('reportYear').value;
+                if (!year) {
+                    showAlert('Wybierz rok!', 'error');
+                    return;
+                }
+                queryParam = 'year=' + encodeURIComponent(year);
+                filenameLabel = year;
+            } else {
+                const month = document.getElementById('reportMonth').value; // format: YYYY-MM
+                if (!month) {
+                    showAlert('Wybierz miesiąc!', 'error');
+                    return;
+                }
+                queryParam = 'month=' + encodeURIComponent(month);
+                filenameLabel = month;
             }
 
             showAlert('Generowanie raportu...', 'info');
 
             // Pobranie PDF wymaga dołączenia tokenu - nie da się użyć zwykłego linku <a href>,
             // więc pobieramy jako blob i wyzwalamy pobranie ręcznie.
-            fetch(API_BASE_URL + '/api/reports/monthly?month=' + encodeURIComponent(month), {
+            fetch(API_BASE_URL + '/api/reports/monthly?' + queryParam, {
                 headers: { 'Authorization': 'Bearer ' + adminToken }
             })
             .then(async r => {
@@ -1527,7 +1586,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `raport-${month}.pdf`;
+                a.download = `raport-${filenameLabel}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
