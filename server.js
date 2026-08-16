@@ -125,6 +125,37 @@ function mapUnavailability(row) {
 const DAY_START_MINUTES = 10 * 60; // 10:00 - najwcześniejszy możliwy start
 const DAY_END_MINUTES = 20 * 60;   // 20:00 - sprzęt musi być zdany najpóźniej o tej godzinie
 
+// Klub potrzebuje minimum 36h na przygotowanie rezerwacji - dotyczy WYŁĄCZNIE rezerwacji
+// składanych przez klientów (formularz publiczny). Nie dotyczy akcji administratora
+// (rezerwacje klubowe, sesje kursu, ręczna edycja) - tam decyduje wiedza i kontekst admina.
+const MIN_HOURS_NOTICE = 36;
+
+// Liczy "teraz" w czasie polskim (Europe/Warsaw), niezależnie od strefy czasowej kontenera
+// na Railway (domyślnie UTC) - z uwzględnieniem automatycznej zmiany czasu zima/lato.
+function getWarsawNowParts() {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Warsaw',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    const parts = fmt.formatToParts(new Date());
+    const get = type => parseInt(parts.find(p => p.type === type).value);
+    return { y: get('year'), m: get('month'), d: get('day'), h: get('hour'), mi: get('minute') };
+}
+
+// Zwraca liczbę godzin (może być ułamkowa) pomiędzy "teraz" (czas polski) a podanym
+// terminem rezerwacji (data + godzina startu, też interpretowane jako czas polski).
+function hoursUntilReservation(dateStr, startTime) {
+    const [ry, rm, rd] = dateStr.split('-').map(Number);
+    const [rh, rmi] = startTime.split(':').map(Number);
+    const reservationMs = Date.UTC(ry, rm - 1, rd, rh, rmi);
+
+    const now = getWarsawNowParts();
+    const nowMs = Date.UTC(now.y, now.m - 1, now.d, now.h, now.mi);
+
+    return (reservationMs - nowMs) / (60 * 60 * 1000);
+}
+
 const YACHT_PRICES = { enn: 80, first: 80, omega: 80 };
 const TACKLE_PRICE = 50;
 const SKIPPER_HOURLY_PRICE = 50;
@@ -344,6 +375,14 @@ app.post('/api/reservations', async (req, res) => {
     }
 
     const parsedHours = parseInt(hours);
+
+    // Klub potrzebuje minimum 36h na przygotowanie rezerwacji
+    const noticeHours = hoursUntilReservation(date, startTime);
+    if (noticeHours < MIN_HOURS_NOTICE) {
+        return res.status(400).json({
+            error: `Rezerwacje muszą być składane z minimum ${MIN_HOURS_NOTICE}-godzinnym wyprzedzeniem. Ten termin jest za wcześnie (klub potrzebuje czasu na przygotowanie).`
+        });
+    }
 
     // Sprawdzenie kolizji czasowej z istniejącymi rezerwacjami tego samego jachtu i dnia
     const { data: existingReservations, error: fetchErr } = await supabase
