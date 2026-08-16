@@ -340,6 +340,26 @@ function sendApprovalEmail(reservation, admin) {
     );
 }
 
+function sendUnservedApologyEmail(reservation) {
+    sendEmail(
+        reservation.customerEmail,
+        `Rezerwacja anulowana - przepraszamy (${reservation.id})`,
+        `
+            <h2>Rezerwacja anulowana</h2>
+            <p>Z przykrością informujemy, że Twoja rezerwacja czarteru nie mogła zostać zrealizowana <strong>z przyczyn niezależnych od klubu</strong> — nie udało się zapewnić opiekuna na ten termin.</p>
+            <h3>Szczegóły anulowanej rezerwacji:</h3>
+            <ul>
+                <li><strong>ID Rezerwacji:</strong> ${reservation.id}</li>
+                <li><strong>Jacht:</strong> ${reservation.yacht.toUpperCase()}</li>
+                <li><strong>Data:</strong> ${new Date(reservation.date).toLocaleDateString('pl-PL')}</li>
+                <li><strong>Czas:</strong> ${reservation.startTime} (${reservation.hours}h)</li>
+            </ul>
+            <p>Serdecznie przepraszamy za powstałe niedogodności i zachęcamy do złożenia nowej rezerwacji na inny termin.</p>
+            <p>Pozdrawiamy,<br>YKP Lublin</p>
+        `
+    );
+}
+
 app.post('/api/auth/login', (req, res) => {
     const { password } = req.body;
 
@@ -1129,6 +1149,22 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
         return res.status(500).json({ error: 'Błąd pobierania danych do raportu' });
     }
 
+    // Rezerwacje nieobsłużone (brak opiekuna 24h przed startem) w tym samym okresie
+    const { data: unservedReservations, error: unservedErr } = await supabase
+        .from('reservations')
+        .select('yacht, date, start_time, customer_name')
+        .eq('status', 'unserved')
+        .eq('is_club_reservation', false)
+        .eq('is_course_session', false)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true });
+
+    if (unservedErr) {
+        console.error('Supabase select error:', unservedErr);
+        return res.status(500).json({ error: 'Błąd pobierania danych o rezerwacjach nieobsłużonych' });
+    }
+
     // Agregacja: przychód klubu wg jachtu
     const byYacht = { enn: 0, first: 0, omega: 0 };
     let totalClub = 0;
@@ -1196,6 +1232,27 @@ app.get('/api/reports/monthly', verifyAdminToken, async (req, res) => {
     }
     doc.moveDown(0.3);
     doc.font(FONT_BOLD).fontSize(13).text(`RAZEM OBSŁUŻONYCH CZARTERÓW:  ${totalHandledCharters}`);
+    doc.moveDown(2);
+
+    // Sekcja: rezerwacje nieobsłużone (brak opiekuna 24h przed startem)
+    doc.font(FONT_BOLD).fontSize(14).text('Rezerwacje nieobsłużone');
+    doc.moveDown(0.3);
+    doc.font(FONT_REGULAR).fontSize(9).fillColor('#888888')
+        .text('(brak przydzielonego opiekuna na 24h przed rozpoczęciem - klient został automatycznie poinformowany mailem)');
+    doc.fillColor('#000000');
+    doc.moveDown(0.5);
+    doc.font(FONT_REGULAR).fontSize(12);
+
+    if (unservedReservations.length === 0) {
+        doc.text('Brak nieobsłużonych rezerwacji w tym miesiącu.');
+    } else {
+        unservedReservations.forEach(r => {
+            const dateLabel = new Date(r.date).toLocaleDateString('pl-PL');
+            doc.text(`${dateLabel} ${r.start_time} — ${YACHT_LABELS[r.yacht]} — ${r.customer_name}`);
+        });
+    }
+    doc.moveDown(0.3);
+    doc.font(FONT_BOLD).fontSize(13).text(`RAZEM NIEOBSŁUŻONYCH:  ${unservedReservations.length}`);
     doc.moveDown(3);
 
     // Stopka
@@ -1285,6 +1342,67 @@ async function sendDailyReservationsDigest() {
 // Harmonogram: codziennie o 8:00 czasu polskiego (strefa uwzględnia automatycznie
 // zmianę czasu zima/lato, w przeciwieństwie do stałego przesunięcia UTC).
 cron.schedule('0 8 * * *', sendDailyReservationsDigest, { timezone: 'Europe/Warsaw' });
+
+// ============================================
+// AUTOMATYCZNE OZNACZANIE REZERWACJI NIEOBSŁUŻONYCH
+// ============================================
+// Rezerwacje oczekujące (pending), którym NIE przydzielono opiekuna, a do startu zostało
+// mniej niż 24h, są automatycznie oznaczane statusem "unserved" (nieobsłużona).
+// Rekord NIE jest kasowany - zostaje w bazie i pojawia się w raporcie jako osobna
+// kategoria. Klient dostaje maila z przeprosinami (pomijane dla rezerwacji klubowych
+// i sesji kursu - tam nie ma prawdziwego adresu klienta).
+
+async function processUnservedReservations() {
+    try {
+        // Bezpieczny, przybliżony filtr zakresu dat na poziomie zapytania do bazy (żeby nie
+        // skanować całej przyszłej tabeli co godzinę) - dokładne sprawdzenie "czy to mniej
+        // niż 24h" odbywa się dalej, osobno dla każdego kandydata.
+        const now = getWarsawNowParts();
+        const todayMs = Date.UTC(now.y, now.m - 1, now.d);
+        const cutoff = new Date(todayMs + 2 * 24 * 60 * 60 * 1000);
+        const cutoffDateStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoff.getUTCDate()).padStart(2, '0')}`;
+
+        const { data: candidates, error } = await supabase
+            .from('reservations')
+            .select('*')
+            .eq('status', 'pending')
+            .is('admin_id', null)
+            .lte('date', cutoffDateStr);
+
+        if (error) {
+            console.error('Przetwarzanie nieobsłużonych - błąd pobierania danych:', error);
+            return;
+        }
+
+        if (!candidates || candidates.length === 0) return;
+
+        for (const row of candidates) {
+            const hoursLeft = hoursUntilReservation(row.date, row.start_time);
+            if (hoursLeft >= 24) continue;
+
+            const { error: updateErr } = await supabase
+                .from('reservations')
+                .update({ status: 'unserved' })
+                .eq('id', row.id);
+
+            if (updateErr) {
+                console.error(`Błąd oznaczania rezerwacji ${row.id} jako nieobsłużonej:`, updateErr);
+                continue;
+            }
+
+            console.log(`Rezerwacja ${row.id} oznaczona jako nieobsłużona (${hoursLeft.toFixed(1)}h do startu, brak opiekuna)`);
+
+            if (!row.is_club_reservation && !row.is_course_session) {
+                sendUnservedApologyEmail(mapReservation(row));
+            }
+        }
+    } catch (err) {
+        console.error('Przetwarzanie nieobsłużonych - nieoczekiwany błąd:', err.message);
+    }
+}
+
+// Harmonogram: co godzinę (dokładniejsze niż raz dziennie, bo 24h to już wąski margines)
+cron.schedule('0 * * * *', processUnservedReservations, { timezone: 'Europe/Warsaw' });
 
 // ============================================
 // START SERVER
