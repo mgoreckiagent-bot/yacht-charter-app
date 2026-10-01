@@ -4,112 +4,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zarządzanie Flotą Klubową</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            /* Paleta marynistyczna — flagi sygnałowe i takielunek, nie domyślny "SaaS-owy" fiolet */
+            --navy: #0B2545;
+            --navy-deep: #071A33;
+            --navy-mid: #15345C;
+            --red: #C8102E;
+            --red-deep: #A20E26;
+            --gold: #D4A32C;
+            --gold-deep: #B6871B;
+            --paper: #FFFFFF;
+            --sand: #FBFAF7;
+            --ink: #1C2B3A;
+            --muted: #5B6B7C;
+            --line: #E3E0D6;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        body {
+            font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif;
+            color: var(--ink);
+            background: var(--navy-deep);
+            background-image:
+                radial-gradient(ellipse 1200px 500px at 50% -10%, var(--navy-mid) 0%, transparent 60%),
+                linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-deep) 320px, var(--sand) 320px, var(--sand) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.5;
+        }
         .container { max-width: 1200px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 40px; }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .mode-selector { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
-        .mode-btn { padding: 15px 40px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        .mode-btn.customer { background: #4CAF50; color: white; }
-        .mode-btn.customer:hover { background: #45a049; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); }
-        .mode-btn.admin { background: #2196F3; color: white; }
-        .mode-btn.admin:hover { background: #0b7dda; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
-        .mode-btn.skipper { background: #ff7043; color: white; }
-        .mode-btn.skipper:hover { background: #f4511e; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255, 112, 67, 0.4); }
-        .calendar td.marked-unavailable { background: #ffcdd2; border: 2px solid #e53935; }
-        .calendar td.marked-unavailable:hover { background: #ef9a9a; }
-        .unavail-badge { display: inline-block; background: #e53935; color: white; padding: 3px 8px; border-radius: 10px; font-size: 10px; margin-top: 4px; }
-        .mode-btn.active { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
-        .module { display: none; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .header { text-align: center; color: var(--sand); margin-bottom: 0; padding: 36px 20px 56px; position: relative; }
+        .header h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 2.4em; margin-bottom: 8px; letter-spacing: 0.2px; }
+        .header p { color: #C9D6E6; font-size: 1.05em; }
+        /* Linia horyzontu — jedyny mocny, "hero" akcent na całej stronie */
+        .horizon { display: block; width: 100%; height: 48px; margin-bottom: -1px; }
+        .horizon path { fill: var(--sand); }
+        .mode-selector { display: flex; gap: 16px; justify-content: center; margin: 28px 0 30px; flex-wrap: wrap; }
+        .mode-btn { padding: 14px 34px; font-size: 15px; border: 2px solid transparent; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; font-weight: 600; font-family: 'Public Sans', sans-serif; letter-spacing: 0.3px; }
+        .mode-btn.customer { background: var(--gold); color: var(--navy-deep); }
+        .mode-btn.customer:hover { background: var(--gold-deep); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(212, 163, 44, 0.35); }
+        .mode-btn.admin { background: var(--navy); color: var(--sand); border-color: var(--navy); }
+        .mode-btn.admin:hover { background: var(--navy-mid); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(11, 37, 69, 0.3); }
+        .mode-btn.skipper { background: var(--paper); color: var(--navy); border-color: var(--navy); }
+        .mode-btn.skipper:hover { background: #F0EDE4; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(11, 37, 69, 0.15); }
+        .mode-btn.active { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.25); outline: 2px solid var(--gold); outline-offset: 2px; }
+        .calendar td.marked-unavailable { background: #F7D9DD; border: 2px solid var(--red); }
+        .calendar td.marked-unavailable:hover { background: #F0C2C9; }
+        .unavail-badge { display: inline-block; background: var(--red); color: white; padding: 3px 8px; border-radius: 10px; font-size: 10px; margin-top: 4px; }
+        .module { display: none; background: var(--paper); border-radius: 10px; padding: 40px; box-shadow: 0 16px 40px rgba(7, 26, 51, 0.12); border-top: 3px solid var(--gold); }
         .module.active { display: block; animation: slideIn 0.3s ease; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         .section { margin-bottom: 30px; }
-        .section h2 { color: #333; margin-bottom: 20px; font-size: 1.5em; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .section h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; color: var(--navy); margin-bottom: 18px; font-size: 1.4em; padding-bottom: 10px; border-bottom: 2px solid var(--line); position: relative; }
+        .section h2::after { content: ""; position: absolute; left: 0; bottom: -2px; width: 56px; height: 2px; background: var(--gold); }
         .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
-        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="time"], input[type="number"], select { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; transition: border-color 0.3s ease; }
-        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        label { display: block; margin-bottom: 8px; color: var(--navy); font-weight: 600; font-size: 14px; }
+        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="time"], input[type="number"], select { width: 100%; padding: 12px; border: 1.5px solid var(--line); border-radius: 6px; font-size: 14px; font-family: inherit; color: var(--ink); transition: border-color 0.2s ease; }
+        input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212, 163, 44, 0.15); }
         .checkbox-group { display: flex; gap: 20px; flex-wrap: wrap; }
         .checkbox-item { display: flex; align-items: center; gap: 10px; }
-        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
-        .price-summary { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--navy); }
+        .price-summary { background: var(--sand); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid var(--line); }
         .price-line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-        .price-line.total { border-top: 2px solid #667eea; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: #667eea; }
-        .price-label { color: #666; }
-        .price-value { font-weight: 600; color: #333; }
-        .deposit-info { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 6px; margin: 20px 0; color: #856404; }
+        .price-line.total { border-top: 2px solid var(--gold); padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 18px; color: var(--navy); }
+        .price-label { color: var(--muted); }
+        .price-value { font-weight: 600; color: var(--ink); }
+        .deposit-info { background: #FBF2DD; border-left: 4px solid var(--gold); padding: 15px; border-radius: 6px; margin: 20px 0; color: #6B5112; }
         .button-group { display: flex; gap: 15px; margin-top: 30px; flex-wrap: wrap; }
-        button { padding: 12px 30px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px; }
-        .btn-primary { background: #667eea; color: white; }
-        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-secondary:hover { background: #5a6268; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-danger:hover { background: #c82333; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover { background: #218838; }
-        .btn-info { background: #17a2b8; color: white; }
-        .btn-info:hover { background: #138496; }
-        .summary-card { background: #f8f9fa; border: 2px solid #667eea; border-radius: 8px; padding: 25px; margin: 20px 0; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
+        button { padding: 12px 28px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: 'Public Sans', sans-serif; transition: all 0.2s ease; letter-spacing: 0.2px; }
+        .btn-primary { background: var(--navy); color: var(--sand); }
+        .btn-primary:hover { background: var(--navy-mid); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(11, 37, 69, 0.3); }
+        .btn-secondary { background: #E9E6DC; color: var(--navy); }
+        .btn-secondary:hover { background: #DEDAD0; }
+        .btn-danger { background: var(--red); color: white; }
+        .btn-danger:hover { background: var(--red-deep); }
+        .btn-success { background: #2F7A52; color: white; }
+        .btn-success:hover { background: #276844; }
+        .btn-info { background: var(--navy-mid); color: white; }
+        .btn-info:hover { background: var(--navy); }
+        .summary-card { background: var(--sand); border: 1.5px solid var(--line); border-top: 3px solid var(--gold); border-radius: 8px; padding: 25px; margin: 20px 0; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
         .summary-row:last-child { border-bottom: none; }
-        .summary-label { color: #666; font-weight: 500; }
-        .summary-value { color: #333; font-weight: 700; }
+        .summary-label { color: var(--muted); font-weight: 500; }
+        .summary-value { color: var(--ink); font-weight: 700; }
         .calendar { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .calendar th, .calendar td { padding: 15px; text-align: center; border: 1px solid #ddd; }
-        .calendar th { background: #667eea; color: white; font-weight: 600; }
-        .calendar td { height: 130px; vertical-align: top; position: relative; cursor: pointer; background: #fafafa; transition: background 0.3s ease; }
-        .calendar td:hover { background: #f0f0f0; }
-        .calendar .other-month { color: #ccc; background: #f5f5f5; }
-        .calendar .today { background: #e8f5e9; border: 2px solid #4CAF50; }
-        .calendar td.day-disabled { background: #e0e0e0 !important; color: #9e9e9e !important; border-color: #bdbdbd !important; cursor: not-allowed !important; }
+        .calendar th, .calendar td { padding: 15px; text-align: center; border: 1px solid var(--line); }
+        .calendar th { background: var(--navy); color: var(--sand); font-weight: 600; font-size: 13px; letter-spacing: 0.3px; }
+        .calendar td { height: 130px; vertical-align: top; position: relative; cursor: pointer; background: var(--paper); transition: background 0.2s ease; }
+        .calendar td:hover { background: #F5F3EC; }
+        .calendar .other-month { color: #C7C2B4; background: #F7F6F1; }
+        .calendar .today { background: #FBF2DD; border: 2px solid var(--gold); }
+        .calendar td.day-disabled { background: #ECEAE2 !important; color: #A7A192 !important; border-color: #D9D5C8 !important; cursor: not-allowed !important; }
         .calendar td:nth-child(6):not(.today):not(.other-month),
-        .calendar td:nth-child(7):not(.today):not(.other-month) { background: #ffebee; }
-        .reservation { background: #ff6b6b; color: white; padding: 4px 6px; border-radius: 4px; margin: 3px 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: normal; line-height: 1.3; cursor: pointer; transition: all 0.2s ease; }
-        .reservation:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        .reservation.approved { background: #4CAF50; }
-        .reservation.pending { background: #ff9800; }
-        .reservation.realized { background: #e0e0e0; color: #616161; }
-        .reservation.unserved { background: #e57373; color: white; }
+        .calendar td:nth-child(7):not(.today):not(.other-month) { background: #FBEEEF; }
+        .reservation { background: var(--red); color: white; padding: 4px 6px; border-radius: 4px; margin: 3px 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: normal; line-height: 1.3; cursor: pointer; transition: all 0.2s ease; }
+        .reservation:hover { transform: scale(1.04); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .reservation.approved { background: #2F7A52; }
+        .reservation.pending { background: #DB8A1C; }
+        .reservation.realized { background: #DAD6C9; color: #5B5747; }
+        .reservation.unserved { background: var(--red); color: white; }
         .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
         .calendar-nav button { padding: 10px 20px; }
-        .calendar-title { font-size: 20px; font-weight: bold; color: #333; flex: 1; text-align: center; }
+        .calendar-title { font-family: 'Fraunces', Georgia, serif; font-size: 20px; font-weight: 600; color: var(--navy); flex: 1; text-align: center; }
         .login-form { max-width: 400px; margin: 50px auto; }
-        .alert { padding: 15px; border-radius: 6px; margin-bottom: 20px; display: none; white-space: pre-line; }
+        .alert { padding: 15px; border-radius: 6px; margin-bottom: 20px; display: none; white-space: pre-line; font-size: 14px; }
         .alert.show { display: block; }
-        .alert.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .alert.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s ease; }
+        .alert.success { background: #E1EFE6; color: #1F5F3A; border: 1px solid #BFDECB; }
+        .alert.error { background: #FBE4E7; color: #8C1527; border: 1px solid #F3C2C9; }
+        .alert.info { background: #E6EEF5; color: #1D3F60; border: 1px solid #C6D9E8; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(7, 26, 51, 0.55); animation: fadeIn 0.3s ease; }
         .modal.show { display: flex; justify-content: center; align-items: center; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .modal-content { background-color: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-content { background-color: var(--paper); padding: 30px; border-radius: 10px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(7, 26, 51, 0.35); border-top: 3px solid var(--gold); }
         .modal-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h2 { color: #333; margin: 0; }
-        .close-modal { font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; background: none; border: none; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
-        .close-modal:hover { color: #000; }
+        .modal-header h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; color: var(--navy); margin: 0; }
+        .close-modal { font-size: 26px; font-weight: 400; color: var(--muted); cursor: pointer; background: none; border: none; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .close-modal:hover { color: var(--red); }
         .reservation-list { margin-top: 20px; }
-        .reservation-item { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #667eea; transition: all 0.3s ease; }
-        .reservation-item:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .reservation-item.red { border-left-color: #ff6b6b; }
-        .reservation-item.green { border-left-color: #4CAF50; }
-        .reservation-item.orange { border-left-color: #ff9800; }
-        .reservation-item.gray { border-left-color: #9e9e9e; background: #f0f0f0; }
-        .reservation-item.dark-red { border-left-color: #c62828; background: #ffebee; }
+        .reservation-item { background: var(--sand); padding: 20px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid var(--navy); transition: all 0.2s ease; }
+        .reservation-item:hover { box-shadow: 0 4px 14px rgba(7, 26, 51, 0.1); }
+        .reservation-item.red { border-left-color: var(--red); }
+        .reservation-item.green { border-left-color: #2F7A52; }
+        .reservation-item.orange { border-left-color: #DB8A1C; }
+        .reservation-item.gray { border-left-color: #A7A192; background: #F3F1EA; }
+        .reservation-item.dark-red { border-left-color: var(--red-deep); background: #FBE4E7; }
         .reservation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .reservation-status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-        .reservation-status.pending { background: #ffe0b2; color: #e65100; }
-        .reservation-status.approved { background: #c8e6c9; color: #2e7d32; }
-        .reservation-status.realized { background: #e0e0e0; color: #616161; }
-        .reservation-status.unserved { background: #ffcdd2; color: #c62828; }
+        .reservation-status { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .reservation-status.pending { background: #F6E2C2; color: #8A5A0B; }
+        .reservation-status.approved { background: #D3E8DA; color: #1F5F3A; }
+        .reservation-status.realized { background: #E4E1D6; color: #5B5747; }
+        .reservation-status.unserved { background: #F7D3D8; color: var(--red-deep); }
         .reservation-details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px; }
         .detail-item { display: flex; flex-direction: column; }
-        .detail-label { color: #666; font-weight: 500; margin-bottom: 3px; }
-        .detail-value { color: #333; font-weight: 600; }
-        .logout-btn { position: absolute; top: 20px; right: 20px; background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .logout-btn:hover { background: #c82333; }
+        .detail-label { color: var(--muted); font-weight: 500; margin-bottom: 3px; font-size: 13px; }
+        .detail-value { color: var(--ink); font-weight: 600; }
+        .logout-btn { position: absolute; top: 20px; right: 20px; background: var(--red); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .logout-btn:hover { background: var(--red-deep); }
         .password-protected { display: none; }
         .password-protected.active { display: block; }
         @media (max-width: 768px) {
@@ -131,6 +164,19 @@
             <h1>Zarządzanie Flotą Klubową</h1>
             <p>YKP Lublin - System Rezerwacji</p>
         </div>
+        <svg class="horizon" viewBox="0 0 1200 48" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,24 C150,44 300,4 450,20 C600,36 750,8 900,22 C1020,33 1110,16 1200,24 L1200,48 L0,48 Z"></path>
+        </svg>
+        <svg class="flag-rule" viewBox="0 0 1200 6" preserveAspectRatio="none" aria-hidden="true" style="display:block; width:100%; height:5px; margin-bottom:28px;">
+            <defs>
+                <pattern id="flagStripes" width="72" height="6" patternUnits="userSpaceOnUse">
+                    <rect width="24" height="6" fill="#D4A32C"></rect>
+                    <rect x="24" width="24" height="6" fill="#C8102E"></rect>
+                    <rect x="48" width="24" height="6" fill="#0B2545"></rect>
+                </pattern>
+            </defs>
+            <rect width="1200" height="6" fill="url(#flagStripes)"></rect>
+        </svg>
 
         <div id="alertBox" class="alert"></div>
 
